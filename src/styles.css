@@ -268,6 +268,16 @@ body {
   margin-bottom: 4px;
 }
 
+.chat__welcome-hint {
+  margin-top: 16px;
+  padding: 8px 16px;
+  background: var(--bg-input);
+  border-radius: var(--radius);
+  font-style: italic;
+  font-size: 0.88rem;
+  display: inline-block;
+}
+
 /* ── Messages ── */
 .message {
   max-width: 80%;
@@ -297,6 +307,57 @@ body {
   border: 1px solid var(--danger-border);
   color: var(--danger);
   font-size: 0.88rem;
+}
+
+/* Tool calls */
+.message--tool {
+  align-self: flex-start;
+  background: #1a1f2e;
+  border: 1px solid #2d3548;
+  border-left: 3px solid #f59e0b;
+  max-width: 85%;
+  font-size: 0.84rem;
+}
+
+.tool-call__header {
+  font-weight: 600;
+  color: #f59e0b;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+}
+
+.message--tool pre {
+  margin: 0;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.message--tool pre code {
+  display: block;
+  padding: 8px 10px;
+  background: #0d1117;
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  line-height: 1.45;
+}
+
+.message--tool-result {
+  align-self: flex-start;
+  background: #121a12;
+  border: 1px solid #2d4a2d;
+  border-left: 3px solid #22c55e;
+  max-width: 85%;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  color: #86efac;
+}
+
+.message--tool-result.message--tool-error {
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+  border-left-color: var(--danger);
+  color: var(--danger);
 }
 
 /* Markdown inside assistant messages */

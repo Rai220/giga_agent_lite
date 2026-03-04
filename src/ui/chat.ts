@@ -35,6 +35,55 @@ export function appendMessage(
   return div;
 }
 
+export function appendToolCall(
+  chatEl: HTMLElement,
+  name: string,
+  args: Record<string, unknown>,
+): HTMLElement {
+  const welcome = chatEl.querySelector('.chat__welcome');
+  if (welcome) welcome.remove();
+
+  const div = document.createElement('div');
+  div.className = 'message message--tool';
+
+  const header = document.createElement('div');
+  header.className = 'tool-call__header';
+  header.textContent = `🔧 ${name}`;
+  div.appendChild(header);
+
+  if (name === 'execute_js' && typeof args.code === 'string') {
+    const codeEl = document.createElement('pre');
+    const codeInner = document.createElement('code');
+    codeInner.className = 'language-javascript';
+    codeInner.textContent = args.code;
+    codeEl.appendChild(codeInner);
+    div.appendChild(codeEl);
+    hljs.highlightElement(codeInner);
+  } else {
+    const pre = document.createElement('pre');
+    pre.textContent = JSON.stringify(args, null, 2);
+    div.appendChild(pre);
+  }
+
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return div;
+}
+
+export function appendToolResult(
+  chatEl: HTMLElement,
+  _name: string,
+  result: string,
+  isError: boolean,
+): HTMLElement {
+  const div = document.createElement('div');
+  div.className = `message message--tool-result${isError ? ' message--tool-error' : ''}`;
+  div.textContent = result;
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return div;
+}
+
 export function clearChat(chatEl: HTMLElement): void {
   chatEl.innerHTML = '';
 }
@@ -45,6 +94,7 @@ export function showWelcome(chatEl: HTMLElement): void {
       <h2>GigaAgent Lite</h2>
       <p>Universal LLM agent: GigaChat, OpenAI, Anthropic.</p>
       <p>Configure API keys in ⚙ settings, then start chatting.</p>
+      <p class="chat__welcome-hint">Try: "Calculate the first 10 Fibonacci numbers"</p>
     </div>
   `;
 }

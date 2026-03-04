@@ -13,9 +13,11 @@ import {
   loadActiveConversationId,
   saveActiveConversationId,
 } from './storage';
-import { sendChatMessage } from './agent';
+import { sendAgentMessage } from './agent';
 import {
   appendMessage,
+  appendToolCall,
+  appendToolResult,
   renderMessages,
   showTypingIndicator,
 } from './ui/chat';
@@ -144,11 +146,20 @@ async function handleSend(): Promise<void> {
     if (!settings) throw new Error('Configure API keys in ⚙ Settings first.');
 
     const prevMessages = activeConversation.messages.slice(0, -1);
-    const answer = await sendChatMessage(
+    const answer = await sendAgentMessage(
       activeProvider,
       settings,
       prevMessages,
       text,
+      {
+        onToolCall(name, args) {
+          typing.remove();
+          appendToolCall(chatEl, name, args);
+        },
+        onToolResult(name, result, isError) {
+          appendToolResult(chatEl, name, result, isError);
+        },
+      },
     );
 
     typing.remove();
@@ -163,7 +174,7 @@ async function handleSend(): Promise<void> {
     appendMessage(chatEl, 'assistant', answer);
   } catch (err) {
     typing.remove();
-    const msg = err instanceof Error ? err.message : 'Unknown error';
+    const msg = extractErrorMessage(err);
     appendMessage(chatEl, 'error', `Error: ${msg}`);
   } finally {
     isSending = false;
@@ -223,6 +234,20 @@ modalSave.addEventListener('click', () => {
   saveSettings(activeProvider, values);
   closeSettings();
 });
+
+function extractErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    if (err.message !== '[object Object]') return err.message;
+    const resp = (err as unknown as Record<string, unknown>).response;
+    if (resp && typeof resp === 'object') {
+      const data = (resp as Record<string, unknown>).data;
+      try { return JSON.stringify(data ?? resp, null, 2); } catch { /* fall through */ }
+    }
+    return JSON.stringify(err, Object.getOwnPropertyNames(err), 2);
+  }
+  if (typeof err === 'string') return err;
+  try { return JSON.stringify(err, null, 2); } catch { return String(err); }
+}
 
 function init(): void {
   initDefaults();
