@@ -248,3 +248,24 @@ await writable.close();
 - **Несколько диалогов** (табы)
 - **Кастомные инструменты** (пользователь добавляет свои функции)
 - **Экспорт диалога** в markdown-файл
+
+## Cursor Cloud specific instructions
+
+This is a **frontend-only** Vite + TypeScript project with no backend services. The only required service is the Vite dev server.
+
+### Quick reference
+
+| Action | Command |
+|--------|---------|
+| Install deps | `npm install` |
+| Dev server | `npm run dev` (Vite, port 5173) |
+| Type check / lint | `npm run typecheck` (alias: `npm run lint`) |
+| Production build | `npm run build` (outputs to `dist/`) |
+| Preview build | `npm run preview` |
+
+### Notes
+
+- The Vite dev server binds to localhost by default. Use `npx vite --host 0.0.0.0` if you need to expose it on all interfaces (e.g. for browser testing from the Desktop pane).
+- `npm run build` runs `tsc && vite build`; TypeScript errors will block the build.
+- No database, Docker, or external services are required. All LLM API calls are made directly from the browser to external APIs (GigaChat, OpenAI, Anthropic).
+- The `langchain-gigachat` npm package is at version 0.0.x (not 0.1+); keep this in mind when updating dependencies.

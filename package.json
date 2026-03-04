@@ -1,0 +1,25 @@
+{
+  "name": "giga-agent-lite",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@langchain/anthropic": "^0.3",
+    "@langchain/core": "^0.3",
+    "@langchain/openai": "^0.4",
+    "highlight.js": "^11.11",
+    "langchain-gigachat": "^0.0.14",
+    "marked": "^15"
+  },
+  "devDependencies": {
+    "typescript": "^5.7",
+    "vite": "^6"
+  }
+}
