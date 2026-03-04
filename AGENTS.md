@@ -268,4 +268,10 @@ This is a **frontend-only** Vite + TypeScript project with no backend services. 
 - The Vite dev server binds to localhost by default. Use `npx vite --host 0.0.0.0` if you need to expose it on all interfaces (e.g. for browser testing from the Desktop pane).
 - `npm run build` runs `tsc && vite build`; TypeScript errors will block the build.
 - No database, Docker, or external services are required. All LLM API calls are made directly from the browser to external APIs (GigaChat, OpenAI, Anthropic).
-- The `langchain-gigachat` npm package is at version 0.0.x (not 0.1+); keep this in mind when updating dependencies.
+
+### GigaChat-specific caveats
+
+- **Do NOT use `langchain-gigachat` in the browser.** The `langchain-gigachat` package does not forward the `dangerouslyAllowBrowser` option to the underlying `gigachat` SDK, causing a runtime error. Instead, use the `gigachat` npm package directly with `dangerouslyAllowBrowser: true`.
+- The `gigachat` npm package depends on Node.js `events` module; the `events` npm polyfill is installed to satisfy this in the browser bundle.
+- For development, `vite.config.ts` sets up a proxy `/gigachat-api` → `GIGACHAT_BASE_URL` to avoid CORS issues. GigaChat credentials (`GIGACHAT_USER`, `GIGACHAT_PASSWORD`, `GIGACHAT_BASE_URL`, `GIGACHAT_MODEL`) are injected as build-time defaults via Vite's `define` option and auto-saved to localStorage on first load.
+- Settings (API keys) and conversation history are stored entirely in browser `localStorage`; there is no backend.
