@@ -5,6 +5,7 @@ export interface GigaChatSettings {
   password: string;
   credentials: string;
   baseUrl: string;
+  corsProxy: string;
   model: string;
   scope: string;
 }

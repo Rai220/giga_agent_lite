@@ -59,6 +59,7 @@ function initDefaults(): void {
       user: __DEV_DEFAULTS__.gigachat.user,
       password: __DEV_DEFAULTS__.gigachat.password,
       credentials: '',
+      corsProxy: '',
       baseUrl: __DEV_DEFAULTS__.gigachat.baseUrl,
       model: __DEV_DEFAULTS__.gigachat.model,
       scope: __DEV_DEFAULTS__.gigachat.scope,
