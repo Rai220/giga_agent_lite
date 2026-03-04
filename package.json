@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@langchain/anthropic": "^0.3",
@@ -17,9 +18,11 @@
     "events": "^3.3.0",
     "gigachat": "^0.0.15",
     "highlight.js": "^11.11",
-    "marked": "^15"
+    "marked": "^15",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "patch-package": "^8.0.1",
     "typescript": "^5.7",
     "vite": "^6"
   }
