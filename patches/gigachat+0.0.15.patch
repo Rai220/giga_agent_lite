@@ -1,0 +1,54 @@
+diff --git a/node_modules/gigachat/api/post_auth.js b/node_modules/gigachat/api/post_auth.js
+index 92f4f86..b094ed2 100644
+--- a/node_modules/gigachat/api/post_auth.js
++++ b/node_modules/gigachat/api/post_auth.js
+@@ -8,7 +8,7 @@ function getRequestConfig(args) {
+     const headers = {
+         Authorization: `Basic ${args.credentials}`,
+         RqUID: (0, uuid_1.v4)(),
+-        'User-Agent': constants_1.USER_AGENT,
++        ...(typeof window === 'undefined' ? { 'User-Agent': constants_1.USER_AGENT } : {}),
+         'Content-Type': 'application/x-www-form-urlencoded',
+         Accept: 'application/json',
+     };
+diff --git a/node_modules/gigachat/api/post_auth.mjs b/node_modules/gigachat/api/post_auth.mjs
+index f9b3b6f..31fb3ab 100644
+--- a/node_modules/gigachat/api/post_auth.mjs
++++ b/node_modules/gigachat/api/post_auth.mjs
+@@ -5,7 +5,7 @@ function getRequestConfig(args) {
+     const headers = {
+         Authorization: `Basic ${args.credentials}`,
+         RqUID: uuidv4(),
+-        'User-Agent': USER_AGENT,
++        ...(typeof window === 'undefined' ? { 'User-Agent': USER_AGENT } : {}),
+         'Content-Type': 'application/x-www-form-urlencoded',
+         Accept: 'application/json',
+     };
+diff --git a/node_modules/gigachat/api/utils.js b/node_modules/gigachat/api/utils.js
+index ab03794..ea59779 100644
+--- a/node_modules/gigachat/api/utils.js
++++ b/node_modules/gigachat/api/utils.js
+@@ -15,9 +15,6 @@ function buildHeaders(accessToken) {
+     if (!isRunningInBrowser()) {
+         headers['User-Agent'] = constants_1.USER_AGENT;
+     }
+-    else {
+-        headers['X-User-Agent'] = constants_1.USER_AGENT;
+-    }
+     return headers;
+ }
+ function parseChunk(line) {
+diff --git a/node_modules/gigachat/api/utils.mjs b/node_modules/gigachat/api/utils.mjs
+index 819bd98..d2ccd40 100644
+--- a/node_modules/gigachat/api/utils.mjs
++++ b/node_modules/gigachat/api/utils.mjs
+@@ -7,9 +7,6 @@ export function buildHeaders(accessToken) {
+     if (!isRunningInBrowser()) {
+         headers['User-Agent'] = USER_AGENT;
+     }
+-    else {
+-        headers['X-User-Agent'] = USER_AGENT;
+-    }
+     return headers;
+ }
+ export function parseChunk(line) {

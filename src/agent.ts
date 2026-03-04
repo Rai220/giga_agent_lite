@@ -1,6 +1,20 @@
 import { GigaChat as GigaChatClient } from 'gigachat';
 import type { Message, Function as GigaChatFunction } from 'gigachat/interfaces';
-import type { ChatMessage, ProviderType, ProviderSettingsMap, GigaChatSettings } from './types';
+import {
+  HumanMessage,
+  AIMessage,
+  SystemMessage,
+  ToolMessage,
+} from '@langchain/core/messages';
+import type { AIMessageChunk } from '@langchain/core/messages';
+import { tool } from '@langchain/core/tools';
+import { z } from 'zod';
+import type {
+  ChatMessage,
+  ProviderType,
+  ProviderSettingsMap,
+  GigaChatSettings,
+} from './types';
 import { ALL_FUNCTIONS } from './tools/definitions';
 import { executeJs } from './tools/execute-js';
 
@@ -16,12 +30,32 @@ export interface AgentCallbacks {
   onToolResult: (name: string, result: string, isError: boolean) => void;
 }
 
-function buildClient(settings: GigaChatSettings): GigaChatClient {
+async function executeTool(
+  name: string,
+  args: Record<string, unknown>,
+): Promise<{ result: string; isError: boolean }> {
+  if (name === 'execute_js') {
+    const code =
+      typeof args.code === 'string' ? args.code : String(args.code ?? '');
+    const res = await executeJs(code);
+    const parts: string[] = [];
+    if (res.logs.length > 0) parts.push(`Console:\n${res.logs.join('\n')}`);
+    if (res.output) parts.push(`Return: ${res.output}`);
+    return {
+      result: parts.length > 0 ? parts.join('\n') : '(no output)',
+      isError: res.error,
+    };
+  }
+  return { result: `Unknown tool: ${name}`, isError: true };
+}
+
+// ── GigaChat agent ──
+
+function buildGigaChatClient(settings: GigaChatSettings): GigaChatClient {
   const opts: Record<string, unknown> = {
     dangerouslyAllowBrowser: true,
     model: settings.model || 'GigaChat',
   };
-
   let baseUrl = settings.baseUrl || '';
   if (settings.corsProxy && baseUrl && !baseUrl.startsWith('/')) {
     baseUrl = settings.corsProxy.replace(/\/+$/, '') + '/' + baseUrl;
@@ -37,8 +71,14 @@ function buildClient(settings: GigaChatSettings): GigaChatClient {
   return new GigaChatClient(opts);
 }
 
-function historyToMessages(history: ChatMessage[], userMessage: string): Message[] {
-  return [
+async function gigachatAgent(
+  settings: GigaChatSettings,
+  history: ChatMessage[],
+  userMessage: string,
+  callbacks?: AgentCallbacks,
+): Promise<string> {
+  const client = buildGigaChatClient(settings);
+  const messages: Message[] = [
     { role: 'system', content: SYSTEM_PROMPT },
     ...history.map((m) => ({
       role: m.role as 'user' | 'assistant',
@@ -46,25 +86,129 @@ function historyToMessages(history: ChatMessage[], userMessage: string): Message
     })),
     { role: 'user' as const, content: userMessage },
   ];
+  const functions: GigaChatFunction[] = ALL_FUNCTIONS;
+  let lastToolResult = '';
+
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    let response;
+    try {
+      response = await client.chat({
+        model: settings.model || 'GigaChat',
+        messages,
+        functions,
+        profanity_check: false,
+      });
+    } catch (apiErr) {
+      if (i > 0 && lastToolResult) return lastToolResult;
+      throw apiErr;
+    }
+
+    const choice = response.choices[0];
+    if (!choice) throw new Error('Empty response from GigaChat');
+    const msg = choice.message;
+    messages.push(msg);
+
+    if (!msg.function_call) {
+      const c = msg.content;
+      if (typeof c === 'string') return c;
+      if (c == null) return lastToolResult || '';
+      try {
+        return JSON.stringify(c);
+      } catch {
+        return String(c);
+      }
+    }
+
+    const fnName = msg.function_call.name;
+    const fnArgs = (msg.function_call.arguments ?? {}) as Record<
+      string,
+      unknown
+    >;
+    callbacks?.onToolCall(fnName, fnArgs);
+    const { result, isError } = await executeTool(fnName, fnArgs);
+    lastToolResult = result;
+    callbacks?.onToolResult(fnName, result, isError);
+    messages.push({ role: 'function', name: fnName, content: result });
+  }
+  return 'Reached maximum number of agent iterations.';
 }
 
-async function executeTool(
-  name: string,
-  args: Record<string, unknown>,
-): Promise<{ result: string; isError: boolean }> {
-  if (name === 'execute_js') {
-    const code = typeof args.code === 'string' ? args.code : String(args.code ?? '');
-    const res = await executeJs(code);
+// ── OpenAI / Anthropic agent (LangChain) ──
+
+const executeJsLangChainTool = tool(
+  async (input: { code: string }) => {
+    const res = await executeJs(input.code);
     const parts: string[] = [];
     if (res.logs.length > 0) parts.push(`Console:\n${res.logs.join('\n')}`);
     if (res.output) parts.push(`Return: ${res.output}`);
-    return {
-      result: parts.length > 0 ? parts.join('\n') : '(no output)',
-      isError: res.error,
-    };
+    return parts.length > 0 ? parts.join('\n') : '(no output)';
+  },
+  {
+    name: 'execute_js',
+    description:
+      'Execute JavaScript code in an isolated sandbox. Use for calculations, data processing, string manipulation. Use "return <value>" to return a result. console.log() output is captured.',
+    schema: z.object({
+      code: z
+        .string()
+        .describe('JavaScript code to execute. Use "return expr" to return a value.'),
+    }),
+  },
+);
+
+async function langchainAgent(
+  provider: ProviderType,
+  settings: ProviderSettingsMap[ProviderType],
+  history: ChatMessage[],
+  userMessage: string,
+  callbacks?: AgentCallbacks,
+): Promise<string> {
+  const { createLangChainModel } = await import('./providers');
+  const baseModel = await createLangChainModel(provider, settings);
+  if (!baseModel.bindTools) {
+    throw new Error(`Provider "${provider}" does not support tool calling`);
   }
-  return { result: `Unknown tool: ${name}`, isError: true };
+  const model = baseModel.bindTools([executeJsLangChainTool]);
+
+  const messages = [
+    new SystemMessage(SYSTEM_PROMPT),
+    ...history.map((m) =>
+      m.role === 'user'
+        ? new HumanMessage(m.content)
+        : new AIMessage(m.content),
+    ),
+    new HumanMessage(userMessage),
+  ];
+
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    const response = (await model.invoke(messages)) as AIMessageChunk;
+    messages.push(response);
+
+    const toolCalls = response.tool_calls;
+    if (!toolCalls || toolCalls.length === 0) {
+      if (typeof response.content === 'string') return response.content;
+      if (Array.isArray(response.content)) {
+        return response.content
+          .map((b) => (typeof b === 'string' ? b : 'text' in b ? b.text : ''))
+          .join('');
+      }
+      return String(response.content);
+    }
+
+    for (const tc of toolCalls) {
+      const args = (tc.args ?? {}) as Record<string, unknown>;
+      callbacks?.onToolCall(tc.name, args);
+      const { result, isError } = await executeTool(tc.name, args);
+      callbacks?.onToolResult(tc.name, result, isError);
+      messages.push(
+        new ToolMessage({ content: result, tool_call_id: tc.id ?? '' }),
+      );
+      if (isError) break;
+    }
+  }
+  return 'Reached maximum number of agent iterations.';
 }
+
+// ── Dispatcher ──
 
 export async function sendAgentMessage(
   provider: ProviderType,
@@ -73,62 +217,13 @@ export async function sendAgentMessage(
   userMessage: string,
   callbacks?: AgentCallbacks,
 ): Promise<string> {
-  if (provider !== 'gigachat') {
-    throw new Error(`Agent tool calling not yet supported for ${provider}. Use GigaChat.`);
+  if (provider === 'gigachat') {
+    return gigachatAgent(
+      settings as GigaChatSettings,
+      history,
+      userMessage,
+      callbacks,
+    );
   }
-
-  const gcSettings = settings as GigaChatSettings;
-  const client = buildClient(gcSettings);
-  const messages = historyToMessages(history, userMessage);
-  const functions: GigaChatFunction[] = ALL_FUNCTIONS;
-
-  let lastToolResult = '';
-
-  for (let i = 0; i < MAX_ITERATIONS; i++) {
-    let response;
-    try {
-      response = await client.chat({
-        model: gcSettings.model || 'GigaChat',
-        messages,
-        functions,
-        profanity_check: false,
-      });
-    } catch (apiErr) {
-      if (i > 0 && lastToolResult) {
-        return lastToolResult;
-      }
-      throw apiErr;
-    }
-
-    const choice = response.choices[0];
-    if (!choice) throw new Error('Empty response from GigaChat');
-
-    const msg = choice.message;
-    messages.push(msg);
-
-    if (!msg.function_call) {
-      const c = msg.content;
-      if (typeof c === 'string') return c;
-      if (c == null) return lastToolResult || '';
-      try { return JSON.stringify(c); } catch { return String(c); }
-    }
-
-    const fnName = msg.function_call.name;
-    const fnArgs = (msg.function_call.arguments ?? {}) as Record<string, unknown>;
-
-    callbacks?.onToolCall(fnName, fnArgs);
-
-    const { result, isError } = await executeTool(fnName, fnArgs);
-    lastToolResult = result;
-
-    callbacks?.onToolResult(fnName, result, isError);
-
-    messages.push({
-      role: 'function',
-      name: fnName,
-      content: result,
-    });
-  }
-
-  return 'Reached maximum number of agent iterations.';
+  return langchainAgent(provider, settings, history, userMessage, callbacks);
 }
