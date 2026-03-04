@@ -15,8 +15,8 @@
     "@langchain/core": "^0.3",
     "@langchain/openai": "^0.4",
     "events": "^3.3.0",
+    "gigachat": "^0.0.15",
     "highlight.js": "^11.11",
-    "langchain-gigachat": "^0.0.14",
     "marked": "^15"
   },
   "devDependencies": {
