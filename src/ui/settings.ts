@@ -51,7 +51,12 @@ function renderGigaChatForm(container: HTMLElement): void {
     </div>
     <div class="form-group">
       <label for="gc-baseurl">Base URL</label>
-      <input type="text" id="gc-baseurl" value="${esc(saved?.baseUrl ?? d.baseUrl)}" placeholder="/gigachat-api or https://..." />
+      <input type="text" id="gc-baseurl" value="${esc(saved?.baseUrl ?? (d.baseUrl || 'https://gigachat.devices.sberbank.ru/api/v1'))}" placeholder="https://gigachat.devices.sberbank.ru/api/v1" />
+    </div>
+    <div class="form-group">
+      <label for="gc-proxy">CORS Proxy <small>(required for browser access)</small></label>
+      <input type="text" id="gc-proxy" value="${esc(saved?.corsProxy ?? '')}" placeholder="https://your-proxy.workers.dev" />
+      <div class="form-hint" style="margin-top:4px">Needed when running in browser (GitHub Pages). Requests are sent as <code>proxy/baseUrl/endpoint</code>.</div>
     </div>
     <div class="form-group">
       <label for="gc-model">Model</label>
@@ -110,6 +115,8 @@ export function collectSettings(
           document.getElementById('gc-credentials') as HTMLInputElement
         ).value,
         baseUrl: (document.getElementById('gc-baseurl') as HTMLInputElement)
+          .value,
+        corsProxy: (document.getElementById('gc-proxy') as HTMLInputElement)
           .value,
         model: (document.getElementById('gc-model') as HTMLInputElement).value,
         scope: (document.getElementById('gc-scope') as HTMLSelectElement).value,

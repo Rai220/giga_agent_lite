@@ -21,7 +21,12 @@ function buildClient(settings: GigaChatSettings): GigaChatClient {
     dangerouslyAllowBrowser: true,
     model: settings.model || 'GigaChat',
   };
-  if (settings.baseUrl) opts.baseUrl = settings.baseUrl;
+
+  let baseUrl = settings.baseUrl || '';
+  if (settings.corsProxy && baseUrl && !baseUrl.startsWith('/')) {
+    baseUrl = settings.corsProxy.replace(/\/+$/, '') + '/' + baseUrl;
+  }
+  if (baseUrl) opts.baseUrl = baseUrl;
   if (settings.scope) opts.scope = settings.scope;
   if (settings.credentials) {
     opts.credentials = settings.credentials;
