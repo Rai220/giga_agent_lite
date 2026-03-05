@@ -471,10 +471,17 @@ body {
 /* ── Input area ── */
 .input-area {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 0;
   padding: 10px 16px;
   border-top: 1px solid var(--border);
   background: var(--bg-surface);
+}
+
+.input-area__row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
 }
 
 .input-area__textarea {
@@ -498,6 +505,52 @@ body {
 
 .input-area__textarea::placeholder {
   color: var(--text-muted);
+}
+
+/* File attachments */
+.input-area__attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0 8px;
+}
+
+.input-area__attachments[hidden] {
+  display: none;
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  color: var(--text);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-chip small {
+  color: var(--text-muted);
+}
+
+.attachment-chip__remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.attachment-chip__remove:hover {
+  color: var(--danger);
 }
 
 /* ── Modal ── */

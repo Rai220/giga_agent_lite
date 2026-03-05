@@ -1,4 +1,4 @@
-export type ProviderType = 'gigachat' | 'openai' | 'anthropic';
+export type ProviderType = 'gigachat' | 'openai' | 'anthropic' | 'gemini';
 
 export interface GigaChatSettings {
   user: string;
@@ -20,10 +20,23 @@ export interface AnthropicSettings {
   model: string;
 }
 
+export interface GeminiSettings {
+  apiKey: string;
+  model: string;
+}
+
 export interface ProviderSettingsMap {
   gigachat: GigaChatSettings;
   openai: OpenAISettings;
   anthropic: AnthropicSettings;
+  gemini: GeminiSettings;
+}
+
+export interface UploadedFile {
+  name: string;
+  content: string;
+  size: number;
+  type: string;
 }
 
 export interface ChatMessage {

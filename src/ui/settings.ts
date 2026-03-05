@@ -3,6 +3,7 @@ import type {
   GigaChatSettings,
   OpenAISettings,
   AnthropicSettings,
+  GeminiSettings,
   ProviderSettingsMap,
 } from '../types';
 import { loadSettings } from '../storage';
@@ -28,6 +29,9 @@ export function renderSettingsForm(
       break;
     case 'anthropic':
       renderAnthropicForm(container);
+      break;
+    case 'gemini':
+      renderGeminiForm(container);
       break;
   }
 }
@@ -102,6 +106,21 @@ function renderAnthropicForm(container: HTMLElement): void {
   `;
 }
 
+function renderGeminiForm(container: HTMLElement): void {
+  const saved = loadSettings('gemini');
+  container.innerHTML = `
+    <div class="form-group">
+      <label for="gem-key">API Key</label>
+      <input type="password" id="gem-key" value="${esc(saved?.apiKey ?? '')}" placeholder="AIza..." />
+    </div>
+    <div class="form-group">
+      <label for="gem-model">Model</label>
+      <input type="text" id="gem-model" value="${esc(saved?.model ?? 'gemini-2.0-flash')}" placeholder="gemini-2.0-flash" />
+    </div>
+    <p class="form-hint">Get your API key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--primary)">Google AI Studio</a>.</p>
+  `;
+}
+
 export function collectSettings(
   provider: ProviderType,
 ): ProviderSettingsMap[typeof provider] {
@@ -132,5 +151,10 @@ export function collectSettings(
         model: (document.getElementById('anth-model') as HTMLInputElement)
           .value,
       } satisfies AnthropicSettings as ProviderSettingsMap[typeof provider];
+    case 'gemini':
+      return {
+        apiKey: (document.getElementById('gem-key') as HTMLInputElement).value,
+        model: (document.getElementById('gem-model') as HTMLInputElement).value,
+      } satisfies GeminiSettings as ProviderSettingsMap[typeof provider];
   }
 }

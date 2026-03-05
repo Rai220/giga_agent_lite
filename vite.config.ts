@@ -22,16 +22,30 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       open: false,
-      proxy: gigachatBaseUrl
-        ? {
-            '/gigachat-api': {
-              target: gigachatBaseUrl,
-              changeOrigin: true,
-              rewrite: (path) => path.replace(/^\/gigachat-api/, ''),
-              secure: false,
-            },
-          }
-        : undefined,
+      proxy: {
+        ...(gigachatBaseUrl
+          ? {
+              '/gigachat-api': {
+                target: gigachatBaseUrl,
+                changeOrigin: true,
+                rewrite: (path) => path.replace(/^\/gigachat-api/, ''),
+                secure: false,
+              },
+            }
+          : {}),
+        '/ddg-search': {
+          target: 'https://html.duckduckgo.com',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/ddg-search/, ''),
+          secure: true,
+        },
+        '/ddg-api': {
+          target: 'https://api.duckduckgo.com',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/ddg-api/, ''),
+          secure: true,
+        },
+      },
     },
     define: {
       __DEV_DEFAULTS__: JSON.stringify({

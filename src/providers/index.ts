@@ -16,6 +16,10 @@ export async function createLangChainModel(
         settings as ProviderSettingsMap['anthropic'],
       );
     }
+    case 'gemini': {
+      const { createGeminiModel } = await import('./gemini');
+      return createGeminiModel(settings as ProviderSettingsMap['gemini']);
+    }
     default:
       throw new Error(`Provider "${String(provider)}" not supported via LangChain`);
   }
