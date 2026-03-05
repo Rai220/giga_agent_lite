@@ -44,6 +44,10 @@ export default defineConfig(({ mode }) => {
           baseUrl: gigachatBaseUrl ? '/gigachat-api' : '',
           scope: 'GIGACHAT_API_PERS',
         },
+        gemini: {
+          apiKey: env.GEMINI_API_KEY || '',
+          model: 'gemini-2.0-flash',
+        },
       }),
       'process.env': {},
       'process.version': JSON.stringify(''),

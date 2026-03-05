@@ -20,6 +20,7 @@ import {
   appendMessage,
   appendToolCall,
   appendToolResult,
+  appendGeneratedImage,
   renderMessages,
   showTypingIndicator,
 } from './ui/chat';
@@ -75,6 +76,12 @@ function initDefaults(): void {
       baseUrl: __DEV_DEFAULTS__.gigachat.baseUrl,
       model: __DEV_DEFAULTS__.gigachat.model,
       scope: __DEV_DEFAULTS__.gigachat.scope,
+    });
+  }
+  if (!loadSettings('gemini') && __DEV_DEFAULTS__.gemini.apiKey) {
+    saveSettings('gemini', {
+      apiKey: __DEV_DEFAULTS__.gemini.apiKey,
+      model: __DEV_DEFAULTS__.gemini.model,
     });
   }
   // Migrate: if GigaChat has corsProxy but global one is empty, copy it
@@ -231,6 +238,9 @@ async function handleSend(): Promise<void> {
         },
         onToolResult(name, result, isError) {
           appendToolResult(chatEl, name, result, isError);
+        },
+        onImageGenerated(imageDataUrl) {
+          appendGeneratedImage(chatEl, imageDataUrl);
         },
       },
     );

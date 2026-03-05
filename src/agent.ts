@@ -23,6 +23,7 @@ import {
   getUploadedFile,
   listUploadedFiles,
 } from './tools/file-upload';
+import { generateImage } from './tools/generate-image';
 
 const MAX_ITERATIONS = 15;
 
@@ -34,16 +35,19 @@ You have access to the following tools:
 • read_uploaded_file — read content of a file the user has uploaded
 • list_uploaded_files — list all uploaded files
 • current_datetime — get the current date and time
+• generate_image — generate an image from a text description using Nano Banana Pro (Google)
 
 When the user asks you to calculate, process data, write code, or do anything computable — use execute_js.
 When the user asks about current events, facts, or anything you need to look up — use web_search.
 When the user attaches files, use list_uploaded_files and read_uploaded_file to work with them.
+When the user asks to create, draw, generate, or visualize an image — use generate_image. Provide a detailed English prompt for best results.
 Always use tools when they can help. Show your work.
 Be concise and use markdown formatting.`;
 
 export interface AgentCallbacks {
   onToolCall: (name: string, args: Record<string, unknown>) => void;
   onToolResult: (name: string, result: string, isError: boolean) => void;
+  onImageGenerated?: (imageDataUrl: string) => void;
 }
 
 async function executeTool(
@@ -120,6 +124,25 @@ async function executeTool(
       }),
       isError: false,
     };
+  }
+
+  if (name === 'generate_image') {
+    const prompt =
+      typeof args.prompt === 'string'
+        ? args.prompt
+        : String(args.prompt ?? '');
+    try {
+      const imgResult = await generateImage(prompt);
+      return {
+        result: imgResult.imageDataUrl,
+        isError: false,
+      };
+    } catch (err) {
+      return {
+        result: `Image generation error: ${err instanceof Error ? err.message : String(err)}`,
+        isError: true,
+      };
+    }
   }
 
   return { result: `Unknown tool: ${name}`, isError: true };
@@ -203,9 +226,20 @@ async function gigachatAgent(
     >;
     callbacks?.onToolCall(fnName, fnArgs);
     const { result, isError } = await executeTool(fnName, fnArgs);
-    lastToolResult = result;
-    callbacks?.onToolResult(fnName, result, isError);
-    messages.push({ role: 'function', name: fnName, content: result });
+
+    const isImage =
+      fnName === 'generate_image' && !isError && result.startsWith('data:image/');
+    if (isImage) {
+      callbacks?.onImageGenerated?.(result);
+      callbacks?.onToolResult(fnName, 'Image generated successfully.', false);
+      const llmSummary = 'Image generated successfully and displayed to the user.';
+      lastToolResult = llmSummary;
+      messages.push({ role: 'function', name: fnName, content: llmSummary });
+    } else {
+      lastToolResult = result;
+      callbacks?.onToolResult(fnName, result, isError);
+      messages.push({ role: 'function', name: fnName, content: result });
+    }
   }
   return 'Reached maximum number of agent iterations.';
 }
@@ -300,12 +334,32 @@ const datetimeLangChainTool = tool(
   },
 );
 
+const generateImageLangChainTool = tool(
+  async (input: { prompt: string }) => {
+    const imgResult = await generateImage(input.prompt);
+    return imgResult.imageDataUrl;
+  },
+  {
+    name: 'generate_image',
+    description:
+      'Generate an image from a text description using Nano Banana Pro (Google). ' +
+      'Use when the user asks to create, draw, generate, or visualize an image. ' +
+      'Provide a detailed English prompt for best results.',
+    schema: z.object({
+      prompt: z
+        .string()
+        .describe('Detailed text description of the image to generate.'),
+    }),
+  },
+);
+
 const langchainTools = [
   executeJsLangChainTool,
   webSearchLangChainTool,
   readFileLangChainTool,
   listFilesLangChainTool,
   datetimeLangChainTool,
+  generateImageLangChainTool,
 ];
 
 async function langchainAgent(
@@ -351,11 +405,25 @@ async function langchainAgent(
       const args = (tc.args ?? {}) as Record<string, unknown>;
       callbacks?.onToolCall(tc.name, args);
       const { result, isError } = await executeTool(tc.name, args);
-      callbacks?.onToolResult(tc.name, result, isError);
-      messages.push(
-        new ToolMessage({ content: result, tool_call_id: tc.id ?? '' }),
-      );
-      if (isError) break;
+
+      const isImage =
+        tc.name === 'generate_image' && !isError && result.startsWith('data:image/');
+      if (isImage) {
+        callbacks?.onImageGenerated?.(result);
+        callbacks?.onToolResult(tc.name, 'Image generated successfully.', false);
+        messages.push(
+          new ToolMessage({
+            content: 'Image generated successfully and displayed to the user.',
+            tool_call_id: tc.id ?? '',
+          }),
+        );
+      } else {
+        callbacks?.onToolResult(tc.name, result, isError);
+        messages.push(
+          new ToolMessage({ content: result, tool_call_id: tc.id ?? '' }),
+        );
+        if (isError) break;
+      }
     }
   }
   return 'Reached maximum number of agent iterations.';

@@ -8,4 +8,8 @@ declare const __DEV_DEFAULTS__: {
     baseUrl: string;
     scope: string;
   };
+  gemini: {
+    apiKey: string;
+    model: string;
+  };
 };
