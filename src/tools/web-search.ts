@@ -1,3 +1,5 @@
+import { loadGlobalCorsProxy } from '../storage';
+
 export interface SearchResult {
   title: string;
   url: string;
@@ -18,7 +20,7 @@ function parseLiteHTML(html: string): SearchResult[] {
   const doc = parser.parseFromString(html, 'text/html');
   const results: SearchResult[] = [];
 
-  // DDG lite uses table rows with result links and snippets
+  // DDG lite: result links with class or in table structure
   const links = doc.querySelectorAll('a.result-link');
   if (links.length > 0) {
     links.forEach((anchor) => {
@@ -36,7 +38,7 @@ function parseLiteHTML(html: string): SearchResult[] {
     return results;
   }
 
-  // Fallback: parse all external links that look like results
+  // Fallback: parse all external links
   const allLinks = doc.querySelectorAll('a[href]');
   allLinks.forEach((anchor) => {
     const href = anchor.getAttribute('href') ?? '';
@@ -64,7 +66,7 @@ function parseLiteHTML(html: string): SearchResult[] {
   return results;
 }
 
-/** Check if we're running on the Vite dev server (proxy available) */
+/** Check if Vite dev proxy is available */
 function hasDevProxy(): boolean {
   try {
     return (import.meta as any).env?.DEV === true;
@@ -73,28 +75,11 @@ function hasDevProxy(): boolean {
   }
 }
 
-/**
- * Get the DDG proxy URL.
- * In dev mode, uses the Vite proxy.
- * In production, uses the DDG_PROXY_URL from settings or falls back to
- * a Cloudflare Worker URL (deploy worker/ to get one).
- */
-function getDDGProxyUrl(): string | null {
-  if (hasDevProxy()) return null; // use local Vite proxy
-  // Check for a configured proxy URL in localStorage
-  try {
-    const url = localStorage.getItem('ddg_proxy_url');
-    if (url) return url;
-  } catch { /* ignore */ }
-  return null;
-}
-
 async function searchDDGLite(query: string): Promise<SearchResult[]> {
-  const proxyUrl = getDDGProxyUrl();
+  const body = new URLSearchParams({ q: query });
 
-  if (!proxyUrl) {
-    // Dev mode: use Vite proxy
-    const body = new URLSearchParams({ q: query });
+  if (hasDevProxy()) {
+    // Dev mode: Vite proxy handles CORS
     const resp = await fetch('/ddg-search/lite/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -104,9 +89,14 @@ async function searchDDGLite(query: string): Promise<SearchResult[]> {
     return parseLiteHTML(await resp.text());
   }
 
-  // Production: use Cloudflare Worker proxy
-  const body = new URLSearchParams({ q: query });
-  const resp = await fetch(`${proxyUrl}/search`, {
+  // Production: use global CORS proxy (same one as GigaChat)
+  const corsProxy = loadGlobalCorsProxy();
+  if (!corsProxy) return [];
+
+  const targetUrl = 'https://lite.duckduckgo.com/lite/';
+  const proxiedUrl = corsProxy.replace(/\/+$/, '') + '/' + targetUrl;
+
+  const resp = await fetch(proxiedUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),

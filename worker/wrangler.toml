@@ -1,3 +1,0 @@
-name = "ddg-search-proxy"
-main = "ddg-proxy.js"
-compatibility_date = "2024-01-01"

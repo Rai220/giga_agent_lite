@@ -6,7 +6,7 @@ import type {
   GeminiSettings,
   ProviderSettingsMap,
 } from '../types';
-import { loadSettings } from '../storage';
+import { loadSettings, loadGlobalCorsProxy } from '../storage';
 
 function esc(str: string): string {
   return str
@@ -16,11 +16,28 @@ function esc(str: string): string {
     .replace(/>/g, '&gt;');
 }
 
+function renderGlobalSection(): string {
+  const proxy = loadGlobalCorsProxy();
+  return `
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--border, #333)"/>
+    <h4 style="margin:0 0 8px">CORS Proxy</h4>
+    <div class="form-group">
+      <label for="cors-proxy-url">Proxy URL</label>
+      <input type="text" id="cors-proxy-url" value="${esc(proxy)}" placeholder="https://your-proxy.workers.dev" />
+      <div class="form-hint" style="margin-top:4px">Universal CORS proxy for browser access. Used for GigaChat API, DuckDuckGo search, etc. Requests are sent as <code>proxy/targetUrl</code>.</div>
+    </div>
+  `;
+}
+
+export function collectCorsProxy(): string {
+  const el = document.getElementById('cors-proxy-url') as HTMLInputElement | null;
+  return el?.value.trim().replace(/\/+$/, '') ?? '';
+}
+
 export function renderSettingsForm(
   container: HTMLElement,
   provider: ProviderType,
 ): void {
-  // Render provider-specific form first
   const providerDiv = document.createElement('div');
   switch (provider) {
     case 'gigachat':
@@ -37,19 +54,7 @@ export function renderSettingsForm(
       break;
   }
 
-  // Append global tools section
-  const ddgUrl = localStorage.getItem('ddg_proxy_url') ?? '';
-  const toolsHtml = `
-    <hr style="margin:16px 0;border:none;border-top:1px solid var(--border, #333)"/>
-    <h4 style="margin:0 0 8px">Web Search (DuckDuckGo)</h4>
-    <div class="form-group">
-      <label for="ddg-proxy-url">DDG Proxy URL</label>
-      <input type="text" id="ddg-proxy-url" value="${esc(ddgUrl)}" placeholder="https://your-ddg-proxy.workers.dev" />
-      <div class="form-hint" style="margin-top:4px">Deploy <code>worker/</code> as Cloudflare Worker, then paste the URL here. Required for web search on GitHub Pages.</div>
-    </div>
-  `;
-
-  container.innerHTML = providerDiv.innerHTML + toolsHtml;
+  container.innerHTML = providerDiv.innerHTML + renderGlobalSection();
 }
 
 function renderGigaChatForm(container: HTMLElement): void {
@@ -72,11 +77,6 @@ function renderGigaChatForm(container: HTMLElement): void {
     <div class="form-group">
       <label for="gc-baseurl">Base URL</label>
       <input type="text" id="gc-baseurl" value="${esc(saved?.baseUrl ?? (d.baseUrl || 'https://gigachat.devices.sberbank.ru/api/v1'))}" placeholder="https://gigachat.devices.sberbank.ru/api/v1" />
-    </div>
-    <div class="form-group">
-      <label for="gc-proxy">CORS Proxy <small>(required for browser access)</small></label>
-      <input type="text" id="gc-proxy" value="${esc(saved?.corsProxy ?? '')}" placeholder="https://your-proxy.workers.dev" />
-      <div class="form-hint" style="margin-top:4px">Needed when running in browser (GitHub Pages). Requests are sent as <code>proxy/baseUrl/endpoint</code>.</div>
     </div>
     <div class="form-group">
       <label for="gc-model">Model</label>
@@ -151,8 +151,7 @@ export function collectSettings(
         ).value,
         baseUrl: (document.getElementById('gc-baseurl') as HTMLInputElement)
           .value,
-        corsProxy: (document.getElementById('gc-proxy') as HTMLInputElement)
-          .value,
+        corsProxy: collectCorsProxy(),
         model: (document.getElementById('gc-model') as HTMLInputElement).value,
         scope: (document.getElementById('gc-scope') as HTMLSelectElement).value,
       } satisfies GigaChatSettings as ProviderSettingsMap[typeof provider];

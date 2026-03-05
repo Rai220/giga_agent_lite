@@ -3,6 +3,17 @@ import type { Conversation, ProviderType, ProviderSettingsMap } from './types';
 const CONVERSATIONS_KEY = 'gigaagent_conversations';
 const ACTIVE_CONV_KEY = 'gigaagent_active_conversation';
 const PROVIDER_KEY = 'gigaagent_active_provider';
+const CORS_PROXY_KEY = 'gigaagent_cors_proxy';
+
+export function loadGlobalCorsProxy(): string {
+  return localStorage.getItem(CORS_PROXY_KEY) ?? '';
+}
+
+export function saveGlobalCorsProxy(url: string): void {
+  const clean = url.trim().replace(/\/+$/, '');
+  if (clean) localStorage.setItem(CORS_PROXY_KEY, clean);
+  else localStorage.removeItem(CORS_PROXY_KEY);
+}
 
 function settingsKey(provider: ProviderType): string {
   return `gigaagent_settings_${provider}`;

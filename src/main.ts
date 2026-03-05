@@ -12,6 +12,8 @@ import {
   deleteConversation,
   loadActiveConversationId,
   saveActiveConversationId,
+  loadGlobalCorsProxy,
+  saveGlobalCorsProxy,
 } from './storage';
 import { sendAgentMessage } from './agent';
 import {
@@ -22,7 +24,7 @@ import {
   showTypingIndicator,
 } from './ui/chat';
 import { renderSidebar } from './ui/sidebar';
-import { renderSettingsForm, collectSettings } from './ui/settings';
+import { renderSettingsForm, collectSettings, collectCorsProxy } from './ui/settings';
 import {
   addUploadedFile,
   readFileAsText,
@@ -74,6 +76,11 @@ function initDefaults(): void {
       model: __DEV_DEFAULTS__.gigachat.model,
       scope: __DEV_DEFAULTS__.gigachat.scope,
     });
+  }
+  // Migrate: if GigaChat has corsProxy but global one is empty, copy it
+  const gc = loadSettings('gigachat');
+  if (gc?.corsProxy && !loadGlobalCorsProxy()) {
+    saveGlobalCorsProxy(gc.corsProxy);
   }
 }
 
@@ -298,13 +305,7 @@ modal.addEventListener('click', (e) => {
 modalSave.addEventListener('click', () => {
   const values = collectSettings(activeProvider);
   saveSettings(activeProvider, values);
-  // Save global DDG proxy URL
-  const ddgInput = document.getElementById('ddg-proxy-url') as HTMLInputElement | null;
-  if (ddgInput) {
-    const url = ddgInput.value.trim().replace(/\/+$/, '');
-    if (url) localStorage.setItem('ddg_proxy_url', url);
-    else localStorage.removeItem('ddg_proxy_url');
-  }
+  saveGlobalCorsProxy(collectCorsProxy());
   closeSettings();
 });
 

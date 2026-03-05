@@ -15,6 +15,7 @@ import type {
   ProviderSettingsMap,
   GigaChatSettings,
 } from './types';
+import { loadGlobalCorsProxy } from './storage';
 import { ALL_FUNCTIONS } from './tools/definitions';
 import { executeJs } from './tools/execute-js';
 import { webSearch } from './tools/web-search';
@@ -132,8 +133,9 @@ function buildGigaChatClient(settings: GigaChatSettings): GigaChatClient {
     model: settings.model || 'GigaChat',
   };
   let baseUrl = settings.baseUrl || '';
-  if (settings.corsProxy && baseUrl && !baseUrl.startsWith('/')) {
-    baseUrl = settings.corsProxy.replace(/\/+$/, '') + '/' + baseUrl;
+  const corsProxy = settings.corsProxy || loadGlobalCorsProxy();
+  if (corsProxy && baseUrl && !baseUrl.startsWith('/')) {
+    baseUrl = corsProxy.replace(/\/+$/, '') + '/' + baseUrl;
   }
   if (baseUrl) opts.baseUrl = baseUrl;
   if (settings.scope) opts.scope = settings.scope;
