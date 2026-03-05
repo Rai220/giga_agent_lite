@@ -1,0 +1,58 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "GigaAgent Lite",
+  "version": "0.1.0",
+  "identifier": "ru.gigaagent.lite",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "GigaAgent Lite",
+        "width": 1024,
+        "height": 720,
+        "minWidth": 480,
+        "minHeight": 400,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api.duckduckgo.com; connect-src 'self' https: http:; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Utility",
+    "shortDescription": "Universal LLM agent: GigaChat, OpenAI, Anthropic, Gemini",
+    "longDescription": "GigaAgent Lite is a browser-based AI agent with tool calling support. It connects to GigaChat, OpenAI, Anthropic, and Gemini APIs. Features include JavaScript code execution, DuckDuckGo web search, file upload handling, and more.",
+    "linux": {
+      "deb": {
+        "depends": []
+      },
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "both"
+      }
+    }
+  }
+}

@@ -1,5 +1,7 @@
 import { defineConfig, loadEnv } from 'vite';
 
+const host = process.env.TAURI_DEV_HOST;
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
@@ -7,6 +9,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: './',
+    clearScreen: false,
     resolve: {
       alias: {
         events: 'events',
@@ -14,14 +17,18 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: 'dist',
-      sourcemap: true,
+      target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'safari13',
+      sourcemap: !!process.env.TAURI_ENV_DEBUG,
       commonjsOptions: {
         transformMixedEsModules: true,
       },
     },
     server: {
       port: 5173,
+      strictPort: true,
+      host: host || false,
       open: false,
+      hmr: host ? { protocol: 'ws', host, port: 5174 } : undefined,
       proxy: {
         ...(gigachatBaseUrl
           ? {

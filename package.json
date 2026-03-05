@@ -9,13 +9,15 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@langchain/anthropic": "^0.3",
     "@langchain/core": "^0.3",
     "@langchain/google-genai": "^0.2.18",
     "@langchain/openai": "^0.4",
+    "@tauri-apps/api": "^2.10.1",
     "events": "^3.3.0",
     "gigachat": "^0.0.15",
     "highlight.js": "^11.11",
@@ -23,6 +25,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.10.1",
     "patch-package": "^8.0.1",
     "typescript": "^5.7",
     "vite": "^6"
