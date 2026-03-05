@@ -96,22 +96,56 @@ function extractDDGRedirectUrl(href: string): string {
   return href;
 }
 
-function parseHTMLResults(html: string): SearchResult[] {
+function parseLiteResults(html: string): SearchResult[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
   const results: SearchResult[] = [];
 
-  doc.querySelectorAll('.result').forEach((el) => {
-    const anchor = el.querySelector('.result__a');
-    const snippetEl = el.querySelector('.result__snippet');
-    if (!anchor) return;
-    const rawHref = anchor.getAttribute('href') ?? '';
-    results.push({
-      title: anchor.textContent?.trim() ?? '',
-      url: extractDDGRedirectUrl(rawHref),
-      snippet: snippetEl?.textContent?.trim() ?? '',
+  // Lite DDG uses table-based layout with links in specific table cells
+  const links = doc.querySelectorAll('a.result-link');
+  if (links.length > 0) {
+    links.forEach((anchor) => {
+      const rawHref = anchor.getAttribute('href') ?? '';
+      const title = anchor.textContent?.trim() ?? '';
+      // Find the next sibling td with snippet text
+      const row = anchor.closest('tr');
+      const snippetRow = row?.nextElementSibling;
+      const snippet = snippetRow?.querySelector('td.result-snippet')?.textContent?.trim() ?? '';
+      results.push({
+        title,
+        url: extractDDGRedirectUrl(rawHref),
+        snippet,
+      });
     });
-  });
+  }
+
+  // Fallback: parse all links that look like search results
+  if (results.length === 0) {
+    const allLinks = doc.querySelectorAll('a[href]');
+    allLinks.forEach((anchor) => {
+      const href = anchor.getAttribute('href') ?? '';
+      const text = anchor.textContent?.trim() ?? '';
+      if (
+        text &&
+        href &&
+        !href.startsWith('/') &&
+        !href.includes('duckduckgo.com') &&
+        href.startsWith('http')
+      ) {
+        results.push({
+          title: text,
+          url: href,
+          snippet: '',
+        });
+      } else if (text && href && href.includes('uddg=')) {
+        results.push({
+          title: text,
+          url: extractDDGRedirectUrl(href),
+          snippet: '',
+        });
+      }
+    });
+  }
 
   return results;
 }
@@ -140,15 +174,11 @@ async function searchViaAPI(query: string): Promise<SearchResult[]> {
 
 async function searchViaHTML(query: string): Promise<SearchResult[]> {
   try {
-    const body = new URLSearchParams({ q: query, kl: '' });
-    const resp = await fetch('/ddg-search/html/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
-    });
+    const params = new URLSearchParams({ q: query });
+    const resp = await fetch(`/ddg-search/lite/?${params.toString()}`);
     if (!resp.ok) return [];
     const html = await resp.text();
-    return parseHTMLResults(html);
+    return parseLiteResults(html);
   } catch {
     return [];
   }
