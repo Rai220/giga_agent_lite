@@ -92,9 +92,10 @@ export function showWelcome(chatEl: HTMLElement): void {
   chatEl.innerHTML = `
     <div class="chat__welcome">
       <h2>GigaAgent Lite</h2>
-      <p>Universal LLM agent: GigaChat, OpenAI, Anthropic.</p>
+      <p>Universal LLM agent: GigaChat, OpenAI, Anthropic, Gemini.</p>
       <p>Configure API keys in ⚙ settings, then start chatting.</p>
-      <p class="chat__welcome-hint">Try: "Calculate the first 10 Fibonacci numbers"</p>
+      <p class="chat__welcome-hint">Tools: JS sandbox, DuckDuckGo search, file upload, date/time</p>
+      <p class="chat__welcome-hint">Try: "Search the web for latest TypeScript features"</p>
     </div>
   `;
 }

@@ -17,11 +17,26 @@ import type {
 } from './types';
 import { ALL_FUNCTIONS } from './tools/definitions';
 import { executeJs } from './tools/execute-js';
+import { webSearch } from './tools/web-search';
+import {
+  getUploadedFile,
+  listUploadedFiles,
+} from './tools/file-upload';
 
 const MAX_ITERATIONS = 15;
 
 const SYSTEM_PROMPT = `You are GigaAgent Lite — a helpful AI assistant that runs in the browser.
-You have access to tools. When the user asks you to calculate, process data, write code, or do anything computable — use the execute_js tool.
+You have access to the following tools:
+
+• execute_js — run JavaScript code in an isolated sandbox (calculations, data processing, etc.)
+• web_search — search the internet via DuckDuckGo
+• read_uploaded_file — read content of a file the user has uploaded
+• list_uploaded_files — list all uploaded files
+• current_datetime — get the current date and time
+
+When the user asks you to calculate, process data, write code, or do anything computable — use execute_js.
+When the user asks about current events, facts, or anything you need to look up — use web_search.
+When the user attaches files, use list_uploaded_files and read_uploaded_file to work with them.
 Always use tools when they can help. Show your work.
 Be concise and use markdown formatting.`;
 
@@ -46,6 +61,66 @@ async function executeTool(
       isError: res.error,
     };
   }
+
+  if (name === 'web_search') {
+    const query =
+      typeof args.query === 'string' ? args.query : String(args.query ?? '');
+    try {
+      const result = await webSearch(query);
+      return { result, isError: false };
+    } catch (err) {
+      return {
+        result: `Search error: ${err instanceof Error ? err.message : String(err)}`,
+        isError: true,
+      };
+    }
+  }
+
+  if (name === 'read_uploaded_file') {
+    const filename =
+      typeof args.filename === 'string'
+        ? args.filename
+        : String(args.filename ?? '');
+    const file = getUploadedFile(filename);
+    if (!file) {
+      const available = listUploadedFiles();
+      const names = available.map((f) => f.name).join(', ');
+      return {
+        result: `File "${filename}" not found. Available files: ${names || '(none)'}`,
+        isError: true,
+      };
+    }
+    return { result: file.content, isError: false };
+  }
+
+  if (name === 'list_uploaded_files') {
+    const files = listUploadedFiles();
+    if (files.length === 0) {
+      return { result: 'No files uploaded.', isError: false };
+    }
+    const lines = files.map(
+      (f) => `• ${f.name} (${(f.size / 1024).toFixed(1)} KB, ${f.type})`,
+    );
+    return { result: `Uploaded files:\n${lines.join('\n')}`, isError: false };
+  }
+
+  if (name === 'current_datetime') {
+    const now = new Date();
+    return {
+      result: now.toLocaleString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZoneName: 'short',
+      }),
+      isError: false,
+    };
+  }
+
   return { result: `Unknown tool: ${name}`, isError: true };
 }
 
@@ -133,7 +208,7 @@ async function gigachatAgent(
   return 'Reached maximum number of agent iterations.';
 }
 
-// ── OpenAI / Anthropic agent (LangChain) ──
+// ── OpenAI / Anthropic / Gemini agent (LangChain) ──
 
 const executeJsLangChainTool = tool(
   async (input: { code: string }) => {
@@ -155,6 +230,82 @@ const executeJsLangChainTool = tool(
   },
 );
 
+const webSearchLangChainTool = tool(
+  async (input: { query: string }) => {
+    return webSearch(input.query);
+  },
+  {
+    name: 'web_search',
+    description:
+      'Search the internet using DuckDuckGo. Use when the user asks about current events, needs to look something up, or needs information you don\'t have.',
+    schema: z.object({
+      query: z.string().describe('The search query.'),
+    }),
+  },
+);
+
+const readFileLangChainTool = tool(
+  async (input: { filename: string }) => {
+    const file = getUploadedFile(input.filename);
+    if (!file) {
+      const available = listUploadedFiles();
+      const names = available.map((f) => f.name).join(', ');
+      return `File "${input.filename}" not found. Available: ${names || '(none)'}`;
+    }
+    return file.content;
+  },
+  {
+    name: 'read_uploaded_file',
+    description: 'Read content of a file the user has uploaded.',
+    schema: z.object({
+      filename: z.string().describe('Name of the uploaded file.'),
+    }),
+  },
+);
+
+const listFilesLangChainTool = tool(
+  async () => {
+    const files = listUploadedFiles();
+    if (files.length === 0) return 'No files uploaded.';
+    return files
+      .map((f) => `• ${f.name} (${(f.size / 1024).toFixed(1)} KB, ${f.type})`)
+      .join('\n');
+  },
+  {
+    name: 'list_uploaded_files',
+    description: 'List all files the user has uploaded.',
+    schema: z.object({}),
+  },
+);
+
+const datetimeLangChainTool = tool(
+  async () => {
+    return new Date().toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short',
+    });
+  },
+  {
+    name: 'current_datetime',
+    description: 'Get the current date and time.',
+    schema: z.object({}),
+  },
+);
+
+const langchainTools = [
+  executeJsLangChainTool,
+  webSearchLangChainTool,
+  readFileLangChainTool,
+  listFilesLangChainTool,
+  datetimeLangChainTool,
+];
+
 async function langchainAgent(
   provider: ProviderType,
   settings: ProviderSettingsMap[ProviderType],
@@ -167,7 +318,7 @@ async function langchainAgent(
   if (!baseModel.bindTools) {
     throw new Error(`Provider "${provider}" does not support tool calling`);
   }
-  const model = baseModel.bindTools([executeJsLangChainTool]);
+  const model = baseModel.bindTools(langchainTools);
 
   const messages = [
     new SystemMessage(SYSTEM_PROMPT),

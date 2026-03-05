@@ -23,11 +23,18 @@ import {
 } from './ui/chat';
 import { renderSidebar } from './ui/sidebar';
 import { renderSettingsForm, collectSettings } from './ui/settings';
+import {
+  addUploadedFile,
+  readFileAsText,
+  listUploadedFiles,
+  removeUploadedFile,
+} from './tools/file-upload';
 
 const PROVIDER_LABELS: Record<ProviderType, string> = {
   gigachat: 'GigaChat',
   openai: 'OpenAI',
   anthropic: 'Anthropic',
+  gemini: 'Gemini',
 };
 
 let activeConversation: Conversation | null = null;
@@ -45,6 +52,9 @@ const newChatBtn = document.getElementById('new-chat-btn')!;
 const convListEl = document.getElementById('conversation-list')!;
 const sidebarEl = document.getElementById('sidebar')!;
 const sidebarToggle = document.getElementById('sidebar-toggle')!;
+const attachBtn = document.getElementById('attach-btn')!;
+const fileInput = document.getElementById('file-input') as HTMLInputElement;
+const attachmentsEl = document.getElementById('attachments')!;
 
 const modal = document.getElementById('settings-modal')!;
 const modalTitle = document.getElementById('modal-title')!;
@@ -112,6 +122,59 @@ function newConversation(): Conversation {
   };
 }
 
+// ── File attachments ──
+
+function refreshAttachmentsUI(): void {
+  const files = listUploadedFiles();
+  if (files.length === 0) {
+    attachmentsEl.hidden = true;
+    attachmentsEl.innerHTML = '';
+    return;
+  }
+  attachmentsEl.hidden = false;
+  attachmentsEl.innerHTML = files
+    .map(
+      (f) =>
+        `<span class="attachment-chip" data-name="${f.name.replace(/"/g, '&quot;')}">📄 ${f.name} <small>(${(f.size / 1024).toFixed(1)} KB)</small><button class="attachment-chip__remove" title="Remove">&times;</button></span>`,
+    )
+    .join('');
+
+  attachmentsEl.querySelectorAll('.attachment-chip__remove').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const chip = (e.target as HTMLElement).closest('.attachment-chip') as HTMLElement | null;
+      const name = chip?.dataset.name;
+      if (name) {
+        removeUploadedFile(name);
+        refreshAttachmentsUI();
+      }
+    });
+  });
+}
+
+attachBtn.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', async () => {
+  const files = fileInput.files;
+  if (!files || files.length === 0) return;
+
+  for (const file of Array.from(files)) {
+    const uploaded = await readFileAsText(file);
+    addUploadedFile(uploaded);
+  }
+  fileInput.value = '';
+  refreshAttachmentsUI();
+});
+
+// ── Send message ──
+
+function buildUserMessageWithFileContext(text: string): string {
+  const files = listUploadedFiles();
+  if (files.length === 0) return text;
+  const names = files.map((f) => f.name).join(', ');
+  return `${text}\n\n[Attached files: ${names}]`;
+}
+
 async function handleSend(): Promise<void> {
   const text = inputEl.value.trim();
   if (!text || isSending) return;
@@ -119,6 +182,8 @@ async function handleSend(): Promise<void> {
   if (!activeConversation) {
     activeConversation = newConversation();
   }
+
+  const messageForLLM = buildUserMessageWithFileContext(text);
 
   const userMsg: ChatMessage = {
     id: crypto.randomUUID(),
@@ -151,7 +216,7 @@ async function handleSend(): Promise<void> {
       activeProvider,
       settings,
       prevMessages,
-      text,
+      messageForLLM,
       {
         onToolCall(name, args) {
           typing.remove();
