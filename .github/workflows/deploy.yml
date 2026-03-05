@@ -26,8 +26,26 @@ jobs:
 
       - name: Publish to docs/
         run: |
-          rm -rf docs
-          cp -r dist docs
+          mkdir -p docs/assets
+
+          # Merge new build into docs/ without deleting old assets.
+          # Browsers that cached a previous index.html (GitHub Pages caches
+          # HTML for ~10 min) can still fetch old JS chunks during that window.
+          cp -r dist/* docs/
+
+          # Prune stale assets: keep current + one previous build, remove older.
+          ls dist/assets/ > /tmp/keep-assets.txt
+          if [ -f docs/.previous-assets ]; then
+            cat docs/.previous-assets >> /tmp/keep-assets.txt
+          fi
+          for f in docs/assets/*; do
+            name=$(basename "$f")
+            if ! grep -qxF "$name" /tmp/keep-assets.txt; then
+              rm -f "$f"
+            fi
+          done
+          ls dist/assets/ > docs/.previous-assets
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/ -f

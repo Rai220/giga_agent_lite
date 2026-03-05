@@ -24,6 +24,7 @@ import {
   listUploadedFiles,
 } from './tools/file-upload';
 import { generateImage } from './tools/generate-image';
+import { createLangChainModel } from './providers';
 
 const MAX_ITERATIONS = 15;
 
@@ -369,7 +370,6 @@ async function langchainAgent(
   userMessage: string,
   callbacks?: AgentCallbacks,
 ): Promise<string> {
-  const { createLangChainModel } = await import('./providers');
   const baseModel = await createLangChainModel(provider, settings);
   if (!baseModel.bindTools) {
     throw new Error(`Provider "${provider}" does not support tool calling`);
