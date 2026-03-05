@@ -20,20 +20,36 @@ export function renderSettingsForm(
   container: HTMLElement,
   provider: ProviderType,
 ): void {
+  // Render provider-specific form first
+  const providerDiv = document.createElement('div');
   switch (provider) {
     case 'gigachat':
-      renderGigaChatForm(container);
+      renderGigaChatForm(providerDiv);
       break;
     case 'openai':
-      renderOpenAIForm(container);
+      renderOpenAIForm(providerDiv);
       break;
     case 'anthropic':
-      renderAnthropicForm(container);
+      renderAnthropicForm(providerDiv);
       break;
     case 'gemini':
-      renderGeminiForm(container);
+      renderGeminiForm(providerDiv);
       break;
   }
+
+  // Append global tools section
+  const ddgUrl = localStorage.getItem('ddg_proxy_url') ?? '';
+  const toolsHtml = `
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--border, #333)"/>
+    <h4 style="margin:0 0 8px">Web Search (DuckDuckGo)</h4>
+    <div class="form-group">
+      <label for="ddg-proxy-url">DDG Proxy URL</label>
+      <input type="text" id="ddg-proxy-url" value="${esc(ddgUrl)}" placeholder="https://your-ddg-proxy.workers.dev" />
+      <div class="form-hint" style="margin-top:4px">Deploy <code>worker/</code> as Cloudflare Worker, then paste the URL here. Required for web search on GitHub Pages.</div>
+    </div>
+  `;
+
+  container.innerHTML = providerDiv.innerHTML + toolsHtml;
 }
 
 function renderGigaChatForm(container: HTMLElement): void {

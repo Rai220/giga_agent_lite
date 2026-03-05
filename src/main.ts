@@ -298,6 +298,13 @@ modal.addEventListener('click', (e) => {
 modalSave.addEventListener('click', () => {
   const values = collectSettings(activeProvider);
   saveSettings(activeProvider, values);
+  // Save global DDG proxy URL
+  const ddgInput = document.getElementById('ddg-proxy-url') as HTMLInputElement | null;
+  if (ddgInput) {
+    const url = ddgInput.value.trim().replace(/\/+$/, '');
+    if (url) localStorage.setItem('ddg_proxy_url', url);
+    else localStorage.removeItem('ddg_proxy_url');
+  }
   closeSettings();
 });
 
