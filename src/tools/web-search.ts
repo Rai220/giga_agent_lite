@@ -27,6 +27,48 @@ interface DDGTopic {
   Result?: string;
 }
 
+// ── DDG Instant Answer API via JSONP (works everywhere, no CORS proxy needed) ──
+
+function ddgApiJsonp(query: string): Promise<DDGApiResponse> {
+  return new Promise((resolve, reject) => {
+    const cbName = `_ddg_cb_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const params = new URLSearchParams({
+      q: query,
+      format: 'json',
+      no_html: '1',
+      skip_disambig: '1',
+      callback: cbName,
+    });
+
+    const script = document.createElement('script');
+    script.src = `https://api.duckduckgo.com/?${params.toString()}`;
+
+    const cleanup = () => {
+      delete (window as unknown as Record<string, unknown>)[cbName];
+      script.remove();
+    };
+
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('DuckDuckGo API request timed out'));
+    }, 10_000);
+
+    (window as unknown as Record<string, unknown>)[cbName] = (data: DDGApiResponse) => {
+      clearTimeout(timer);
+      cleanup();
+      resolve(data);
+    };
+
+    script.onerror = () => {
+      clearTimeout(timer);
+      cleanup();
+      reject(new Error('DuckDuckGo API request failed'));
+    };
+
+    document.head.appendChild(script);
+  });
+}
+
 function parseDDGApiResponse(data: DDGApiResponse): SearchResult[] {
   const results: SearchResult[] = [];
 
@@ -87,6 +129,8 @@ function parseDDGApiResponse(data: DDGApiResponse): SearchResult[] {
   return results;
 }
 
+// ── DDG HTML search via Vite dev proxy (only works in dev mode) ──
+
 function extractDDGRedirectUrl(href: string): string {
   try {
     const url = new URL(href, 'https://duckduckgo.com');
@@ -116,29 +160,7 @@ function parseHTMLResults(html: string): SearchResult[] {
   return results;
 }
 
-async function searchViaAPI(query: string): Promise<SearchResult[]> {
-  const params = new URLSearchParams({
-    q: query,
-    format: 'json',
-    no_html: '1',
-    skip_disambig: '1',
-  });
-  const resp = await fetch(`/ddg-api/?${params.toString()}`);
-  if (!resp.ok) return [];
-  const data = (await resp.json()) as DDGApiResponse;
-
-  if (data.Redirect) {
-    return [{
-      title: `Redirect for "${query}"`,
-      url: data.Redirect,
-      snippet: `DuckDuckGo redirects to: ${data.Redirect}`,
-    }];
-  }
-
-  return parseDDGApiResponse(data);
-}
-
-async function searchViaHTML(query: string): Promise<SearchResult[]> {
+async function searchViaHTMLProxy(query: string): Promise<SearchResult[]> {
   try {
     const body = new URLSearchParams({ q: query, kl: '' });
     const resp = await fetch('/ddg-search/html/', {
@@ -154,19 +176,33 @@ async function searchViaHTML(query: string): Promise<SearchResult[]> {
   }
 }
 
+// ── Public API ──
+
 export async function webSearch(query: string, maxResults = 10): Promise<string> {
-  const [apiResults, htmlResults] = await Promise.allSettled([
-    searchViaAPI(query),
-    searchViaHTML(query),
+  const settled = await Promise.allSettled([
+    ddgApiJsonp(query),
+    searchViaHTMLProxy(query),
   ]);
 
-  const api = apiResults.status === 'fulfilled' ? apiResults.value : [];
-  const html = htmlResults.status === 'fulfilled' ? htmlResults.value : [];
+  const apiData = settled[0]?.status === 'fulfilled' ? settled[0].value : null;
+  const htmlResults = settled[1]?.status === 'fulfilled' ? settled[1].value : [];
+
+  let apiResults: SearchResult[] = [];
+  if (apiData) {
+    if (apiData.Redirect) {
+      apiResults = [{
+        title: `Redirect for "${query}"`,
+        url: apiData.Redirect,
+        snippet: `DuckDuckGo redirects to: ${apiData.Redirect}`,
+      }];
+    } else {
+      apiResults = parseDDGApiResponse(apiData);
+    }
+  }
 
   const seenUrls = new Set<string>();
   const combined: SearchResult[] = [];
-
-  for (const r of [...html, ...api]) {
+  for (const r of [...htmlResults, ...apiResults]) {
     const key = r.url || r.title;
     if (seenUrls.has(key)) continue;
     seenUrls.add(key);
@@ -176,7 +212,7 @@ export async function webSearch(query: string, maxResults = 10): Promise<string>
   const results = combined.slice(0, maxResults);
 
   if (results.length === 0) {
-    return `No results found for "${query}". The DuckDuckGo search returned no matches. Try a different query or more specific terms.`;
+    return `No results found for "${query}". DuckDuckGo Instant Answer API does not cover all queries (e.g. weather, current events). Try a more factual or encyclopedic query.`;
   }
 
   const lines = results.map(

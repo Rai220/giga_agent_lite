@@ -39,12 +39,6 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(/^\/ddg-search/, ''),
           secure: true,
         },
-        '/ddg-api': {
-          target: 'https://api.duckduckgo.com',
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/ddg-api/, ''),
-          secure: true,
-        },
       },
     },
     define: {

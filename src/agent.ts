@@ -203,7 +203,11 @@ async function gigachatAgent(
     const { result, isError } = await executeTool(fnName, fnArgs);
     lastToolResult = result;
     callbacks?.onToolResult(fnName, result, isError);
-    messages.push({ role: 'function', name: fnName, content: result });
+    messages.push({
+      role: 'function',
+      name: fnName,
+      content: JSON.stringify({ result }),
+    });
   }
   return 'Reached maximum number of agent iterations.';
 }
