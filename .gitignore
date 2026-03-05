@@ -3,6 +3,9 @@ node_modules/
 dist/
 docs/
 
+# Tauri / Rust
+src-tauri/target/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
