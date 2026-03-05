@@ -84,6 +84,24 @@ export function appendToolResult(
   return div;
 }
 
+export function appendGeneratedImage(
+  chatEl: HTMLElement,
+  dataUrl: string,
+): HTMLElement {
+  const div = document.createElement('div');
+  div.className = 'message message--tool-result message--generated-image';
+
+  const img = document.createElement('img');
+  img.src = dataUrl;
+  img.alt = 'Generated image';
+  img.className = 'generated-image';
+  div.appendChild(img);
+
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return div;
+}
+
 export function clearChat(chatEl: HTMLElement): void {
   chatEl.innerHTML = '';
 }
@@ -94,8 +112,8 @@ export function showWelcome(chatEl: HTMLElement): void {
       <h2>GigaAgent Lite</h2>
       <p>Universal LLM agent: GigaChat, OpenAI, Anthropic, Gemini.</p>
       <p>Configure API keys in ⚙ settings, then start chatting.</p>
-      <p class="chat__welcome-hint">Tools: JS sandbox, DuckDuckGo search, file upload, date/time</p>
-      <p class="chat__welcome-hint">Try: "Search the web for latest TypeScript features"</p>
+      <p class="chat__welcome-hint">Tools: JS sandbox, DuckDuckGo search, file upload, date/time, image generation</p>
+      <p class="chat__welcome-hint">Try: "Generate an image of a cat astronaut on the Moon"</p>
     </div>
   `;
 }

@@ -77,10 +77,30 @@ export const DATETIME_DEF: GigaChatFunction = {
   },
 };
 
+export const GENERATE_IMAGE_DEF: GigaChatFunction = {
+  name: 'generate_image',
+  description:
+    'Generate an image from a text description using Nano Banana Pro (Google). ' +
+    'Use this when the user asks to create, draw, generate, or visualize an image. ' +
+    'Provide a detailed prompt in English for best results.',
+  parameters: {
+    type: 'object',
+    properties: {
+      prompt: {
+        type: 'string',
+        description:
+          'Detailed text description of the image to generate. English prompts work best.',
+      },
+    },
+    required: ['prompt'],
+  },
+};
+
 export const ALL_FUNCTIONS: GigaChatFunction[] = [
   EXECUTE_JS_DEF,
   WEB_SEARCH_DEF,
   READ_FILE_DEF,
   LIST_FILES_DEF,
   DATETIME_DEF,
+  GENERATE_IMAGE_DEF,
 ];
