@@ -33,12 +33,6 @@ export default defineConfig(({ mode }) => {
               },
             }
           : {}),
-        '/ddg-search': {
-          target: 'https://lite.duckduckgo.com',
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/ddg-search/, ''),
-          secure: true,
-        },
       },
     },
     define: {

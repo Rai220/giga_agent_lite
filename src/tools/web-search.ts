@@ -1,121 +1,181 @@
-import { loadGlobalCorsProxy } from '../storage';
-
 export interface SearchResult {
   title: string;
   url: string;
   snippet: string;
 }
 
-function extractDDGRedirectUrl(href: string): string {
-  try {
-    const url = new URL(href, 'https://duckduckgo.com');
-    const uddg = url.searchParams.get('uddg');
-    if (uddg) return uddg;
-  } catch { /* ignore */ }
-  return href;
+// ── DuckDuckGo Instant Answer API (CORS-enabled) ──
+
+interface DDGApiResponse {
+  Abstract: string;
+  AbstractText: string;
+  AbstractURL: string;
+  AbstractSource: string;
+  Answer: string;
+  Heading: string;
+  Redirect: string;
+  Definition: string;
+  DefinitionURL: string;
+  DefinitionSource: string;
+  RelatedTopics: Array<DDGTopic | { Name: string; Topics: DDGTopic[] }>;
+  Results: DDGTopic[];
 }
 
-function parseLiteHTML(html: string): SearchResult[] {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
+interface DDGTopic {
+  Text: string;
+  FirstURL: string;
+}
+
+function parseDDGResponse(data: DDGApiResponse): SearchResult[] {
   const results: SearchResult[] = [];
 
-  // DDG lite: result links with class or in table structure
-  const links = doc.querySelectorAll('a.result-link');
-  if (links.length > 0) {
-    links.forEach((anchor) => {
-      const rawHref = anchor.getAttribute('href') ?? '';
-      const title = anchor.textContent?.trim() ?? '';
-      const row = anchor.closest('tr');
-      const snippetRow = row?.nextElementSibling;
-      const snippet = snippetRow?.querySelector('td.result-snippet')?.textContent?.trim() ?? '';
-      results.push({
-        title,
-        url: extractDDGRedirectUrl(rawHref),
-        snippet,
-      });
+  if (data.Redirect) {
+    results.push({
+      title: `Redirect`,
+      url: data.Redirect,
+      snippet: `DuckDuckGo redirects to: ${data.Redirect}`,
     });
-    return results;
   }
 
-  // Fallback: parse all external links
-  const allLinks = doc.querySelectorAll('a[href]');
-  allLinks.forEach((anchor) => {
-    const href = anchor.getAttribute('href') ?? '';
-    const text = anchor.textContent?.trim() ?? '';
-    if (!text || !href) return;
+  if (data.Abstract && data.AbstractURL) {
+    results.push({
+      title: data.Heading || data.AbstractSource || 'Summary',
+      url: data.AbstractURL,
+      snippet: data.AbstractText || data.Abstract,
+    });
+  }
 
-    if (href.includes('uddg=')) {
+  if (data.Answer) {
+    results.push({ title: 'Direct Answer', url: '', snippet: data.Answer });
+  }
+
+  if (data.Definition && data.DefinitionURL) {
+    results.push({
+      title: `Definition (${data.DefinitionSource || 'source'})`,
+      url: data.DefinitionURL,
+      snippet: data.Definition,
+    });
+  }
+
+  for (const item of data.Results ?? []) {
+    if (item.Text && item.FirstURL) {
       results.push({
-        title: text,
-        url: extractDDGRedirectUrl(href),
-        snippet: '',
-      });
-    } else if (
-      href.startsWith('http') &&
-      !href.includes('duckduckgo.com')
-    ) {
-      results.push({
-        title: text,
-        url: href,
-        snippet: '',
+        title: item.Text.split(' - ')[0] ?? item.Text,
+        url: item.FirstURL,
+        snippet: item.Text,
       });
     }
-  });
+  }
+
+  for (const item of data.RelatedTopics ?? []) {
+    if ('Topics' in item && Array.isArray(item.Topics)) {
+      for (const sub of item.Topics) {
+        if (sub.Text && sub.FirstURL) {
+          results.push({
+            title: sub.Text.split(' - ')[0] ?? sub.Text,
+            url: sub.FirstURL,
+            snippet: sub.Text,
+          });
+        }
+      }
+    } else if ('Text' in item && item.Text && item.FirstURL) {
+      results.push({
+        title: item.Text.split(' - ')[0] ?? item.Text,
+        url: item.FirstURL,
+        snippet: item.Text,
+      });
+    }
+  }
 
   return results;
 }
 
-/** Check if Vite dev proxy is available */
-function hasDevProxy(): boolean {
+async function searchDDG(query: string): Promise<SearchResult[]> {
   try {
-    return (import.meta as any).env?.DEV === true;
-  } catch {
-    return false;
-  }
-}
-
-async function searchDDGLite(query: string): Promise<SearchResult[]> {
-  const body = new URLSearchParams({ q: query });
-
-  if (hasDevProxy()) {
-    // Dev mode: Vite proxy handles CORS
-    const resp = await fetch('/ddg-search/lite/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
+    const params = new URLSearchParams({
+      q: query,
+      format: 'json',
+      no_html: '1',
+      skip_disambig: '1',
     });
+    const resp = await fetch(`https://api.duckduckgo.com/?${params}`);
     if (!resp.ok) return [];
-    return parseLiteHTML(await resp.text());
+    const data = (await resp.json()) as DDGApiResponse;
+    return parseDDGResponse(data);
+  } catch {
+    return [];
   }
-
-  // Production: use global CORS proxy (same one as GigaChat)
-  const corsProxy = loadGlobalCorsProxy();
-  if (!corsProxy) return [];
-
-  const targetUrl = 'https://lite.duckduckgo.com/lite/';
-  const proxiedUrl = corsProxy.replace(/\/+$/, '') + '/' + targetUrl;
-
-  const resp = await fetch(proxiedUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
-  if (!resp.ok) return [];
-  return parseLiteHTML(await resp.text());
 }
+
+// ── Wikipedia Search API (CORS-enabled) ──
+
+interface WikiSearchResult {
+  title: string;
+  pageid: number;
+  snippet: string;
+}
+
+interface WikiSearchResponse {
+  query?: {
+    search: WikiSearchResult[];
+  };
+}
+
+function stripHtmlTags(html: string): string {
+  return html.replace(/<[^>]*>/g, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+}
+
+async function searchWikipedia(query: string, lang = 'en'): Promise<SearchResult[]> {
+  try {
+    const params = new URLSearchParams({
+      action: 'query',
+      list: 'search',
+      srsearch: query,
+      format: 'json',
+      srlimit: '5',
+      origin: '*',
+    });
+    const resp = await fetch(`https://${lang}.wikipedia.org/w/api.php?${params}`);
+    if (!resp.ok) return [];
+    const data = (await resp.json()) as WikiSearchResponse;
+
+    return (data.query?.search ?? []).map((item) => ({
+      title: item.title,
+      url: `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(item.title.replace(/ /g, '_'))}`,
+      snippet: stripHtmlTags(item.snippet),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** Detect if query is likely Russian */
+function isRussian(text: string): boolean {
+  return /[а-яёА-ЯЁ]/.test(text);
+}
+
+// ── Combined search ──
 
 export async function webSearch(query: string, maxResults = 10): Promise<string> {
-  let results: SearchResult[] = [];
-
-  try {
-    results = await searchDDGLite(query);
-  } catch {
-    // ignore
+  // Run DDG + Wikipedia in parallel
+  // For Russian queries, also search Russian Wikipedia
+  const searches: Promise<SearchResult[]>[] = [
+    searchDDG(query),
+    searchWikipedia(query, 'en'),
+  ];
+  if (isRussian(query)) {
+    searches.push(searchWikipedia(query, 'ru'));
   }
 
+  const settled = await Promise.allSettled(searches);
+  const allResults: SearchResult[] = [];
+  for (const s of settled) {
+    if (s.status === 'fulfilled') allResults.push(...s.value);
+  }
+
+  // Deduplicate
   const unique = new Map<string, SearchResult>();
-  for (const r of results) {
+  for (const r of allResults) {
     const key = r.url || r.title;
     if (!unique.has(key)) unique.set(key, r);
   }
@@ -123,7 +183,7 @@ export async function webSearch(query: string, maxResults = 10): Promise<string>
   const final = [...unique.values()].slice(0, maxResults);
 
   if (final.length === 0) {
-    return `No results found for "${query}". The DuckDuckGo search returned no matches. Try a different query or more specific terms.`;
+    return `No results found for "${query}". Try rephrasing your query in English or using more specific terms.`;
   }
 
   const lines = final.map(
