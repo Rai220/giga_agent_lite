@@ -275,3 +275,10 @@ This is a **frontend-only** Vite + TypeScript project with no backend services. 
 - The `gigachat` npm package depends on Node.js `events` module; the `events` npm polyfill is installed to satisfy this in the browser bundle.
 - For development, `vite.config.ts` sets up a proxy `/gigachat-api` → `GIGACHAT_BASE_URL` to avoid CORS issues. GigaChat credentials (`GIGACHAT_USER`, `GIGACHAT_PASSWORD`, `GIGACHAT_BASE_URL`, `GIGACHAT_MODEL`) are injected as build-time defaults via Vite's `define` option and auto-saved to localStorage on first load.
 - Settings (API keys) and conversation history are stored entirely in browser `localStorage`; there is no backend.
+
+### Image generation (Nano Banana Pro)
+
+- The `generate_image` tool uses the Gemini API key from Gemini settings, regardless of which chat provider is active.
+- Model: `gemini-3-pro-image-preview` (Nano Banana Pro). The REST call goes directly to `generativelanguage.googleapis.com`.
+- The `GEMINI_API_KEY` env var is injected as a dev default via `vite.config.ts` and auto-saved to localStorage on first page load.
+- To clear stale defaults after changing env vars, delete `gigaagent_settings_gemini` from localStorage and reload.
