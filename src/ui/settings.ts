@@ -7,6 +7,7 @@ import type {
   ProviderSettingsMap,
 } from '../types';
 import { loadSettings, loadGlobalCorsProxy } from '../storage';
+import { loadMemory, memoryDelete, type MemoryStore } from '../tools/memory';
 
 function esc(str: string): string {
   return str
@@ -16,8 +17,35 @@ function esc(str: string): string {
     .replace(/>/g, '&gt;');
 }
 
+function renderMemorySection(memory: MemoryStore): string {
+  const entries = Object.entries(memory);
+  if (entries.length === 0) {
+    return `
+      <hr style="margin:16px 0;border:none;border-top:1px solid var(--border, #333)"/>
+      <h4 style="margin:0 0 8px">🧠 Memory <small style="font-weight:normal;color:var(--text-muted)">(0/50)</small></h4>
+      <p class="form-hint">No memory entries yet. The agent will save memories during conversations.</p>
+    `;
+  }
+  const rows = entries.map(([key, entry]) =>
+    `<div class="memory-entry" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border,#333)">
+      <div style="flex:1;min-width:0">
+        <strong style="font-size:0.82rem">[${esc(key)}]</strong>
+        <span style="font-size:0.82rem;color:var(--text-muted)"> ${esc(entry.content)}</span>
+      </div>
+      <button class="memory-delete-btn" data-key="${esc(key)}" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:1rem" title="Delete">&times;</button>
+    </div>`
+  ).join('');
+
+  return `
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--border, #333)"/>
+    <h4 style="margin:0 0 8px">🧠 Memory <small style="font-weight:normal;color:var(--text-muted)">(${entries.length}/50)</small></h4>
+    ${rows}
+  `;
+}
+
 function renderGlobalSection(): string {
   const proxy = loadGlobalCorsProxy();
+  const memory = loadMemory();
   return `
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--border, #333)"/>
     <h4 style="margin:0 0 8px">CORS Proxy</h4>
@@ -26,6 +54,7 @@ function renderGlobalSection(): string {
       <input type="text" id="cors-proxy-url" value="${esc(proxy)}" placeholder="https://your-proxy.workers.dev" />
       <div class="form-hint" style="margin-top:4px">Universal CORS proxy for browser access. Used for GigaChat API, DuckDuckGo search, etc. Requests are sent as <code>proxy/targetUrl</code>.</div>
     </div>
+    ${renderMemorySection(memory)}
   `;
 }
 
@@ -55,6 +84,16 @@ export function renderSettingsForm(
   }
 
   container.innerHTML = providerDiv.innerHTML + renderGlobalSection();
+
+  container.querySelectorAll('.memory-delete-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = (btn as HTMLElement).dataset.key;
+      if (key) {
+        memoryDelete(key);
+        renderSettingsForm(container, provider);
+      }
+    });
+  });
 }
 
 function renderGigaChatForm(container: HTMLElement): void {

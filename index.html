@@ -63,6 +63,8 @@
           <div class="input-area__attachments" id="attachments" hidden></div>
           <div class="input-area__row">
             <button id="attach-btn" class="btn btn--icon" title="Attach files">&#128206;</button>
+            <button id="dir-btn" class="btn btn--icon" title="Select working directory">&#128193;</button>
+            <span id="dir-status" class="dir-status"></span>
             <textarea
               id="message-input"
               class="input-area__textarea"
@@ -71,7 +73,7 @@
             ></textarea>
             <button id="send-btn" class="btn btn--primary">Send</button>
           </div>
-          <input type="file" id="file-input" multiple hidden />
+          <input type="file" id="file-input" multiple hidden accept="*/*" />
         </footer>
       </div>
 
