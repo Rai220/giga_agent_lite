@@ -1,3 +1,6 @@
+// Chart.js source inlined at build time — no CDN dependency in sandbox
+import chartJsSource from '../vendor/chart.umd.min.js?raw';
+
 export interface ExecutionResult {
   output: string;
   logs: string[];
@@ -5,21 +8,24 @@ export interface ExecutionResult {
   imageDataUrl?: string;
 }
 
-const CHART_JS_CDN = 'https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js';
-
 export function executeJs(code: string): Promise<ExecutionResult> {
   return new Promise((resolve) => {
     const iframe = document.createElement('iframe');
     iframe.sandbox.add('allow-scripts');
     iframe.style.display = 'none';
 
+    // Build the srcdoc with Chart.js inlined — no external dependencies
     iframe.srcdoc = `<!doctype html>
 <canvas id="chart-canvas" width="800" height="400"></canvas>
+<script>${chartJsSource}<\/script>
 <script>
-var _chartReady = false;
-var _pendingCode = null;
+// Disable animations so charts render synchronously
+if (typeof Chart !== 'undefined') {
+  Chart.defaults.animation = false;
+  Chart.defaults.responsive = false;
+}
 
-function _run(code) {
+window.addEventListener('message', function(e) {
   var logs = [];
   var _log = console.log;
   console.log = function() {
@@ -29,15 +35,10 @@ function _run(code) {
   var canvas = document.getElementById('chart-canvas');
   var ctx = canvas.getContext('2d');
 
-  // Disable Chart.js animations so charts render synchronously
-  if (typeof Chart !== 'undefined') {
-    Chart.defaults.animation = false;
-    Chart.defaults.responsive = false;
-  }
-
   try {
-    var fn = new Function('canvas', 'ctx', 'Chart', code);
+    var fn = new Function('canvas', 'ctx', 'Chart', e.data.code);
     var r = fn(canvas, ctx, typeof Chart !== 'undefined' ? Chart : undefined);
+
     if (r && typeof r.then === 'function') {
       r.then(function(val) { _finish(val, logs, canvas, ctx); })
        .catch(function(err) {
@@ -45,13 +46,13 @@ function _run(code) {
        });
       return;
     }
-    // Even with animation:false, Chart.js may defer rendering to next frame.
-    // Wait briefly to let the chart paint before capturing the canvas.
-    setTimeout(function() { _finish(r, logs, canvas, ctx); }, 150);
+
+    // Give Chart.js a frame to paint even with animation:false
+    setTimeout(function() { _finish(r, logs, canvas, ctx); }, 200);
   } catch(err) {
     parent.postMessage({ ok: false, error: String(err), logs: logs }, '*');
   }
-}
+});
 
 function _finish(r, logs, canvas, ctx) {
   var imageData = null;
@@ -64,8 +65,9 @@ function _finish(r, logs, canvas, ctx) {
     if (hasContent) {
       imageData = canvas.toDataURL('image/png');
     }
-  } catch(ce) {}
+  } catch(ce) { /* ignore */ }
 
+  // If the code returned a data URL directly, use it
   if (typeof r === 'string' && r.startsWith('data:image/')) {
     imageData = r;
     r = undefined;
@@ -74,18 +76,7 @@ function _finish(r, logs, canvas, ctx) {
   var out = r === undefined ? '' : (typeof r === 'object' ? JSON.stringify(r) : String(r));
   parent.postMessage({ ok: true, result: out, logs: logs, imageDataUrl: imageData }, '*');
 }
-
-window.addEventListener('message', function(e) {
-  if (_chartReady) {
-    _run(e.data.code);
-  } else {
-    _pendingCode = e.data.code;
-  }
-});
-<\/script>
-<script src="${CHART_JS_CDN}"
-  onload="_chartReady=true; if(_pendingCode) _run(_pendingCode);"
-  onerror="_chartReady=true; if(_pendingCode) _run(_pendingCode);"><\/script>`;
+<\/script>`;
 
     let settled = false;
 

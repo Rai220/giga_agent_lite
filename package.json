@@ -21,6 +21,7 @@
     "@langchain/core": "^0.3",
     "@langchain/google-genai": "^0.2.18",
     "@langchain/openai": "^0.4",
+    "chart.js": "^4.5.1",
     "events": "^3.3.0",
     "gigachat": "^0.0.15",
     "highlight.js": "^11.11",
