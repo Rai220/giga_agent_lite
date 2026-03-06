@@ -80,8 +80,18 @@ You are an **autonomous agent**. When you receive a task:
 
 When the user asks to build a chart or graph:
 - Use \`execute_js\` with Chart.js. The sandbox provides \`canvas\`, \`ctx\`, and \`Chart\` globals.
-- Create the chart, then return \`canvas.toDataURL('image/png')\` so the image appears in chat.
-- Example: \`new Chart(ctx, { type: 'bar', data: {...} }); return canvas.toDataURL('image/png');\`
+- **IMPORTANT:** Always set \`animation: false\` in the chart options so the chart renders synchronously.
+- After creating the chart, call \`chart.render()\` explicitly, then return \`canvas.toDataURL('image/png')\`.
+- Example:
+\`\`\`
+var chart = new Chart(ctx, {
+  type: 'bar',
+  data: { labels: ['A','B'], datasets: [{ data: [10,20] }] },
+  options: { animation: false, responsive: false }
+});
+chart.render();
+return canvas.toDataURL('image/png');
+\`\`\`
 
 ## Working with files
 
@@ -116,8 +126,12 @@ async function executeTool(
     const parts: string[] = [];
     if (res.logs.length > 0) parts.push(`Console:\n${res.logs.join('\n')}`);
     if (res.output) parts.push(`Return: ${res.output}`);
+    const hasImage = !!res.imageDataUrl;
+    const textResult = parts.length > 0
+      ? parts.join('\n')
+      : (hasImage ? 'Chart/image generated successfully.' : '(no output)');
     return {
-      result: parts.length > 0 ? parts.join('\n') : '(no output)',
+      result: textResult,
       isError: res.error,
       imageDataUrl: res.imageDataUrl ?? undefined,
     };
@@ -359,8 +373,10 @@ async function gigachatAgent(
 
     if (imageDataUrl) {
       callbacks?.onImageGenerated?.(imageDataUrl);
-      callbacks?.onToolResult(fnName, result || 'Chart/image generated successfully.', false);
-      const llmSummary = result ? `${result}\n\nChart/image generated and displayed to the user.` : 'Chart/image generated and displayed to the user.';
+      callbacks?.onToolResult(fnName, 'Chart/image generated successfully.', false);
+      const llmSummary = (result && result !== '(no output)')
+        ? `${result}\n\nChart/image generated and displayed to the user.`
+        : 'Chart/image generated and displayed to the user.';
       lastToolResult = llmSummary;
       messages.push({ role: 'function', name: fnName, content: llmSummary });
     } else if (documentInfo) {
@@ -530,17 +546,17 @@ const readCsvLangChainTool = tool(
 );
 
 const readExcelLangChainTool = tool(
-  async (input: { filename: string; sheet?: string }) => {
+  async (input: { filename: string; sheet?: string | null }) => {
     const file = getUploadedFile(input.filename);
     if (!file) return `File "${input.filename}" not found.`;
-    return readExcel(file, input.sheet);
+    return readExcel(file, input.sheet ?? undefined);
   },
   {
     name: 'read_excel',
     description: 'Parse an uploaded Excel file into structured JSON data.',
     schema: z.object({
       filename: z.string().describe('Excel filename.'),
-      sheet: z.string().optional().describe('Sheet name (optional).'),
+      sheet: z.string().nullable().optional().describe('Sheet name (optional, null for first sheet).'),
     }),
   },
 );
@@ -559,15 +575,15 @@ const readPdfLangChainTool = tool(
 );
 
 const fileReadLangChainTool = tool(
-  async (input: { path: string; offset?: number; limit?: number }) =>
-    fileRead(input.path, input.offset, input.limit),
+  async (input: { path: string; offset?: number | null; limit?: number | null }) =>
+    fileRead(input.path, input.offset ?? undefined, input.limit ?? undefined),
   {
     name: 'file_read',
     description: 'Read a file from the user\'s working directory.',
     schema: z.object({
       path: z.string().describe('Relative file path.'),
-      offset: z.number().optional().describe('Start line (1-based).'),
-      limit: z.number().optional().describe('Number of lines.'),
+      offset: z.number().nullable().optional().describe('Start line (1-based, null to start from beginning).'),
+      limit: z.number().nullable().optional().describe('Number of lines (null for all).'),
     }),
   },
 );
@@ -586,14 +602,14 @@ const fileWriteLangChainTool = tool(
 );
 
 const fileGrepLangChainTool = tool(
-  async (input: { pattern: string; glob?: string }) =>
-    fileGrep(input.pattern, input.glob),
+  async (input: { pattern: string; glob?: string | null }) =>
+    fileGrep(input.pattern, input.glob ?? undefined),
   {
     name: 'file_grep',
     description: 'Search for patterns across files in the user\'s directory.',
     schema: z.object({
       pattern: z.string().describe('Regex search pattern.'),
-      glob: z.string().optional().describe('File glob filter.'),
+      glob: z.string().nullable().optional().describe('File glob filter (null for all files).'),
     }),
   },
 );
@@ -664,12 +680,12 @@ async function langchainAgent(
 
       if (imageDataUrl) {
         callbacks?.onImageGenerated?.(imageDataUrl);
-        callbacks?.onToolResult(tc.name, result || 'Chart/image generated.', false);
+        callbacks?.onToolResult(tc.name, 'Chart/image generated successfully.', false);
+        const imgSummary = (result && result !== '(no output)')
+          ? `${result}\nChart/image displayed to user.`
+          : 'Chart/image displayed to user.';
         messages.push(
-          new ToolMessage({
-            content: result ? `${result}\nChart/image displayed to user.` : 'Chart/image displayed to user.',
-            tool_call_id: tc.id ?? '',
-          }),
+          new ToolMessage({ content: imgSummary, tool_call_id: tc.id ?? '' }),
         );
       } else if (documentInfo) {
         callbacks?.onDocumentCreated?.(documentInfo.filename, documentInfo.blobUrl, documentInfo.size);
