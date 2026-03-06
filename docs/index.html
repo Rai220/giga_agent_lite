@@ -10,8 +10,8 @@
       type="image/svg+xml"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>"
     />
-    <script type="module" crossorigin src="./assets/index-axq0wBBz.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-COs4PD6S.css">
+    <script type="module" crossorigin src="./assets/index-DA7Qg5kR.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-D4Tj7qYF.css">
   </head>
   <body>
     <div id="app">
@@ -65,6 +65,8 @@
           <div class="input-area__attachments" id="attachments" hidden></div>
           <div class="input-area__row">
             <button id="attach-btn" class="btn btn--icon" title="Attach files">&#128206;</button>
+            <button id="dir-btn" class="btn btn--icon" title="Select working directory">&#128193;</button>
+            <span id="dir-status" class="dir-status"></span>
             <textarea
               id="message-input"
               class="input-area__textarea"
@@ -73,7 +75,7 @@
             ></textarea>
             <button id="send-btn" class="btn btn--primary">Send</button>
           </div>
-          <input type="file" id="file-input" multiple hidden />
+          <input type="file" id="file-input" multiple hidden accept="*/*" />
         </footer>
       </div>
 
