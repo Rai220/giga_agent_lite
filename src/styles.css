@@ -360,7 +360,7 @@ body {
   color: var(--danger);
 }
 
-/* Generated images */
+/* Generated images / charts */
 .message--generated-image {
   padding: 6px;
   background: transparent;
@@ -373,6 +373,130 @@ body {
   max-height: 512px;
   border-radius: var(--radius);
   display: block;
+}
+
+/* Think tool */
+.message--think {
+  align-self: flex-start;
+  background: #1a1a2e;
+  border: 1px solid #2a2a5a;
+  border-left: 3px solid #8b5cf6;
+  max-width: 85%;
+  font-size: 0.84rem;
+  padding: 8px 12px;
+}
+
+.think-header {
+  font-weight: 600;
+  color: #8b5cf6;
+  font-size: 0.82rem;
+}
+
+.think-body {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  white-space: pre-wrap;
+}
+
+/* Critic tool */
+.message--critic {
+  align-self: flex-start;
+  background: #1a1a2e;
+  border: 1px solid #2a2a5a;
+  border-left: 3px solid #f97316;
+  max-width: 85%;
+  font-size: 0.84rem;
+  padding: 8px 12px;
+}
+
+.critic-header {
+  font-weight: 600;
+  color: #f97316;
+  font-size: 0.82rem;
+}
+
+.critic-body {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  white-space: pre-wrap;
+}
+
+/* Document download card */
+.message--document {
+  align-self: flex-start;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  max-width: 85%;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.document-card__icon {
+  font-size: 1.8rem;
+}
+
+.document-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.document-card__name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-card__size {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.document-card__download {
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* Collapsible tool results */
+.tool-result__summary {
+  white-space: pre-wrap;
+}
+
+.tool-result__toggle {
+  background: none;
+  border: 1px solid #2d4a2d;
+  color: #86efac;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-top: 6px;
+  font-family: var(--font);
+}
+
+.tool-result__toggle:hover {
+  background: #1a2e1a;
+}
+
+.tool-result__full {
+  white-space: pre-wrap;
+  margin-top: 6px;
+}
+
+/* Directory status */
+.dir-status {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
 }
 
 /* Markdown inside assistant messages */

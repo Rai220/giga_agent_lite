@@ -53,5 +53,10 @@ export default defineConfig(({ mode }) => {
       'process.version': JSON.stringify(''),
       'process.versions': JSON.stringify({}),
     },
+    test: {
+      environment: 'node',
+      include: ['tests/**/*.test.ts'],
+      globals: true,
+    },
   };
 });

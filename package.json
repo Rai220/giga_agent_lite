@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
@@ -22,13 +24,19 @@
     "events": "^3.3.0",
     "gigachat": "^0.0.15",
     "highlight.js": "^11.11",
+    "jspdf": "^4.2.0",
     "marked": "^15",
+    "papaparse": "^5.5.3",
+    "pdfjs-dist": "^5.5.207",
+    "xlsx": "^0.18.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.1",
+    "@types/papaparse": "^5.5.2",
     "patch-package": "^8.0.1",
     "typescript": "^5.7",
-    "vite": "^6"
+    "vite": "^6",
+    "vitest": "^4.0.18"
   }
 }

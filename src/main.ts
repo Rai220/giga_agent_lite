@@ -21,6 +21,7 @@ import {
   appendToolCall,
   appendToolResult,
   appendGeneratedImage,
+  appendDocumentCard,
   renderMessages,
   showTypingIndicator,
 } from './ui/chat';
@@ -32,6 +33,7 @@ import {
   listUploadedFiles,
   removeUploadedFile,
 } from './tools/file-upload';
+import { setDirectoryHandle } from './tools/file-system';
 
 const PROVIDER_LABELS: Record<ProviderType, string> = {
   gigachat: 'GigaChat',
@@ -58,6 +60,8 @@ const sidebarToggle = document.getElementById('sidebar-toggle')!;
 const attachBtn = document.getElementById('attach-btn')!;
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
 const attachmentsEl = document.getElementById('attachments')!;
+const dirBtn = document.getElementById('dir-btn')!;
+const dirStatus = document.getElementById('dir-status')!;
 
 const modal = document.getElementById('settings-modal')!;
 const modalTitle = document.getElementById('modal-title')!;
@@ -84,7 +88,6 @@ function initDefaults(): void {
       model: __DEV_DEFAULTS__.gemini.model,
     });
   }
-  // Migrate: if GigaChat has corsProxy but global one is empty, copy it
   const gc = loadSettings('gigachat');
   if (gc?.corsProxy && !loadGlobalCorsProxy()) {
     saveGlobalCorsProxy(gc.corsProxy);
@@ -135,6 +138,19 @@ function newConversation(): Conversation {
     updatedAt: Date.now(),
   };
 }
+
+// ── Directory picker for file system tools ──
+
+dirBtn.addEventListener('click', async () => {
+  try {
+    const handle = await (window as unknown as { showDirectoryPicker(): Promise<FileSystemDirectoryHandle> }).showDirectoryPicker();
+    setDirectoryHandle(handle);
+    dirStatus.textContent = `📂 ${handle.name}`;
+    dirStatus.title = `Working directory: ${handle.name}`;
+  } catch {
+    // User cancelled
+  }
+});
 
 // ── File attachments ──
 
@@ -241,6 +257,9 @@ async function handleSend(): Promise<void> {
         },
         onImageGenerated(imageDataUrl) {
           appendGeneratedImage(chatEl, imageDataUrl);
+        },
+        onDocumentCreated(filename, blobUrl, size) {
+          appendDocumentCard(chatEl, filename, blobUrl, size);
         },
       },
     );
